@@ -12,48 +12,26 @@
 <meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#151514" media="(prefers-color-scheme: dark)">
 <title>Dépenses</title>
+<script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
-<script>
-  // ====== CONFIGURATION : colle ici les 2 valeurs de ton projet Supabase ======
-  // Supabase > Project Settings > API : "Project URL" et "anon public key"
-  const SUPABASE_URL = "https://fhbxkzubvidxthgsacyq.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_n8M9G2fLSHdEFBd8XVdNsg_7eV-Ib5b";
-  // ============================================================================
-</script>
 <style>
   :root {
     color-scheme: light;
-    --bg: #f6f5f2;
-    --surface: #fcfcfb;
-    --border: #e4e2dc;
-    --text: #0b0b0b;
-    --text-2: #52514e;
-    --muted: #8a8984;
-    --accent: #2a78d6;
-    --danger: #c63b3a;
-    --c-courses: #2a78d6;
-    --c-restaurants: #eb6834;
-    --c-divers: #1baf7a;
-    --c-pret: #eda100;
-    --grid: #ebe9e4;
+    --bg: #f6f5f2; --surface: #fcfcfb; --border: #e4e2dc;
+    --text: #0b0b0b; --text-2: #52514e; --muted: #8a8984;
+    --accent: #2a78d6; --danger: #c63b3a; --grid: #ebe9e4; --track: #ebe9e4;
+    --s0: #2a78d6; --s1: #eb6834; --s2: #1baf7a; --s3: #eda100;
+    --s4: #e87ba4; --s5: #008300; --s6: #6250d6; --s7: #e34948;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       color-scheme: dark;
-      --bg: #151514;
-      --surface: #1f1f1e;
-      --border: #33332f;
-      --text: #f0efec;
-      --text-2: #c3c2b7;
-      --muted: #8f8e88;
-      --accent: #3987e5;
-      --danger: #e66767;
-      --c-courses: #3987e5;
-      --c-restaurants: #d95926;
-      --c-divers: #199e70;
-      --c-pret: #c98500;
-      --grid: #2c2c29;
+      --bg: #151514; --surface: #1f1f1e; --border: #33332f;
+      --text: #f0efec; --text-2: #c3c2b7; --muted: #8f8e88;
+      --accent: #3987e5; --danger: #e66767; --grid: #2c2c29; --track: #2c2c29;
+      --s0: #3987e5; --s1: #d95926; --s2: #199e70; --s3: #c98500;
+      --s4: #d55181; --s5: #008300; --s6: #9085e9; --s7: #e66767;
     }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -62,92 +40,114 @@
   body { padding: env(safe-area-inset-top) 0 calc(150px + env(safe-area-inset-bottom)); min-height: 100vh; }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
   .hidden { display: none !important; }
+  .num { font-variant-numeric: tabular-nums; }
 
   header { position: sticky; top: 0; z-index: 5; background: var(--bg);
-    padding: 12px 16px 8px; display: flex; align-items: center; justify-content: space-between; }
-  header h1 { font-size: 22px; margin: 0; font-weight: 700; }
+    padding: 12px 16px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  header h1 { font-size: 22px; margin: 0; font-weight: 700; flex: 1; }
+  .gear { width: 36px; height: 36px; border-radius: 18px; font-size: 20px; color: var(--accent); }
   .year { display: flex; align-items: center; gap: 4px; }
   .year button { width: 36px; height: 36px; border-radius: 18px; font-size: 20px; color: var(--accent); }
   .year span { font-weight: 600; min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; }
+  .year.off { visibility: hidden; }
 
-  .total-year { margin: 4px 16px 12px; padding: 16px; background: var(--surface);
-    border: 1px solid var(--border); border-radius: 14px; }
-  .total-year .label { color: var(--text-2); font-size: 13px; }
-  .total-year .value { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .card { margin: 0 16px 12px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+  .card h2 { font-size: 15px; margin: 0 0 10px; font-weight: 600; }
+  .card .sub { color: var(--text-2); font-size: 13px; }
+  .big { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .sync { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
-  .month { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 14px; overflow: hidden; }
-  .month-head { width: 100%; display: flex; justify-content: space-between; align-items: center;
-    padding: 14px 16px; text-align: left; }
+  .month { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .month-head { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; text-align: left; }
   .month-head .name { font-weight: 600; text-transform: capitalize; }
   .month-head .sum { font-weight: 700; font-variant-numeric: tabular-nums; }
   .bar { display: flex; height: 6px; margin: 0 16px 12px; border-radius: 3px; overflow: hidden; gap: 2px; }
+  .card .bar { margin: 4px 0 12px; height: 10px; border-radius: 5px; }
   .bar i { display: block; height: 100%; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 0 16px 12px; font-size: 13px; color: var(--text-2); }
   .chip { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
   .dot { width: 10px; height: 10px; border-radius: 5px; flex: none; }
   .items { border-top: 1px solid var(--border); }
-  .item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 16px; text-align: left;
-    border-bottom: 1px solid var(--border); }
+  .item { width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 16px; text-align: left; border-bottom: 1px solid var(--border); }
   .item:last-child { border-bottom: 0; }
+  .item:active { background: var(--bg); }
   .item .main { flex: 1; min-width: 0; }
   .item .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .item .d { font-size: 12px; color: var(--muted); }
   .item .m { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .chev { color: var(--muted); font-size: 18px; }
+  .hint { text-align: center; color: var(--muted); font-size: 12px; margin: 0 16px 12px; }
   .empty { text-align: center; color: var(--muted); padding: 40px 24px; }
 
-  .card { margin: 0 16px 12px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
-  .card h2 { font-size: 15px; margin: 0 0 10px; font-weight: 600; }
-  .chart-wrap { position: relative; height: 320px; }
+  .chart-wrap { position: relative; height: 300px; }
   .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 10px; font-size: 13px; color: var(--text-2); }
+  .legend .line { width: 16px; height: 0; border-top: 2px dashed; flex: none; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
-  td { padding: 8px 0; border-bottom: 1px solid var(--border); }
-  td:last-child { text-align: right; font-weight: 600; }
+  th { text-align: right; font-weight: 400; color: var(--muted); font-size: 12px; padding: 0 0 6px; }
+  th:first-child { text-align: left; }
+  td { padding: 8px 0; border-bottom: 1px solid var(--border); text-align: right; }
+  td:first-child { text-align: left; }
+  td b { font-weight: 600; }
   tr:last-child td { border-bottom: 0; }
+  .pct { color: var(--muted); font-weight: 400; }
+  .progress { height: 12px; border-radius: 6px; background: var(--track); overflow: hidden; margin: 12px 0 6px; }
+  .progress i { display: block; height: 100%; background: var(--accent); border-radius: 6px; }
+  .progress.over i { background: var(--danger); }
+  .kv { display: flex; justify-content: space-between; font-size: 14px; color: var(--text-2); }
+  .kv b { color: var(--text); font-variant-numeric: tabular-nums; }
 
   nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex;
     background: color-mix(in srgb, var(--surface) 92%, transparent); backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--border);
-    padding-bottom: env(safe-area-inset-bottom); }
-  nav button { flex: 1; padding: 10px 0 12px; font-size: 12px; color: var(--muted); display: flex;
-    flex-direction: column; align-items: center; gap: 2px; }
-  nav button .ico { font-size: 20px; line-height: 1; }
+    -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
+  nav button { flex: 1; padding: 9px 0 11px; font-size: 11px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  nav svg { width: 22px; height: 22px; }
   nav button.on { color: var(--accent); }
   .fab { position: fixed; right: 18px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 11;
     width: 58px; height: 58px; border-radius: 29px; background: var(--accent); color: #fff;
     font-size: 32px; line-height: 58px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
 
   .sheet-bg { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; }
+  #sheet-cat { z-index: 25; }
   .sheet { width: 100%; background: var(--surface); border-radius: 18px 18px 0 0;
     padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 92vh; overflow: auto; }
   .sheet h2 { margin: 0 0 14px; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
   .sheet h2 button { color: var(--accent); font-size: 16px; font-weight: 400; }
   label { display: block; font-size: 13px; color: var(--text-2); margin: 12px 0 6px; }
-  input { width: 100%; font: inherit; font-size: 17px; padding: 12px; border-radius: 10px;
+  input, select { width: 100%; font: inherit; font-size: 17px; padding: 12px; border-radius: 10px;
     border: 1px solid var(--border); background: var(--bg); color: var(--text); }
-  input.big { font-size: 30px; font-weight: 700; text-align: center; }
+  input.amount { font-size: 30px; font-weight: 700; text-align: center; }
   .cats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .cats button { padding: 12px; border-radius: 10px; border: 1.5px solid var(--border);
-    display: flex; align-items: center; gap: 8px; justify-content: center; }
+  .cats button { padding: 12px 8px; border-radius: 10px; border: 1.5px solid var(--border);
+    display: flex; align-items: center; gap: 8px; justify-content: center; min-width: 0; }
+  .cats button span.n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cats button.on { border-color: var(--text); font-weight: 600; }
-  .primary { width: 100%; margin-top: 18px; padding: 15px; border-radius: 12px; background: var(--accent);
-    color: #fff; font-weight: 600; font-size: 17px; }
+  .cats button.add { color: var(--accent); border-style: dashed; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 12px; }
+  .swatches button { width: 38px; height: 38px; border-radius: 19px; box-shadow: 0 0 0 2px var(--surface); }
+  .swatches button.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
+  .list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .list .item { padding: 13px 14px; }
+  .primary { width: 100%; margin-top: 18px; padding: 15px; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 600; font-size: 17px; }
   .primary:disabled { opacity: .5; }
+  .secondary { width: 100%; margin-top: 12px; padding: 13px; border-radius: 12px; border: 1.5px dashed var(--border); color: var(--accent); }
   .del { width: 100%; margin-top: 10px; padding: 13px; color: var(--danger); }
+  .danger-zone { margin-top: 14px; padding: 14px; border-radius: 12px; border: 1px solid var(--danger); }
+  .danger-zone p { margin: 0 0 4px; font-size: 14px; }
+  .danger-zone .primary { background: var(--danger); margin-top: 12px; }
   .err { color: var(--danger); font-size: 14px; margin-top: 10px; min-height: 1em; }
+  .section-title { font-size: 13px; color: var(--text-2); text-transform: uppercase; letter-spacing: .04em; margin: 4px 0 8px; }
 
   .login { max-width: 380px; margin: 0 auto; padding: 60px 24px; }
   .login h1 { font-size: 28px; margin: 0 0 6px; }
   .login p { color: var(--text-2); margin: 0 0 20px; }
   .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(160px + env(safe-area-inset-bottom));
     z-index: 30; background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 20px; font-size: 14px; }
-  .linkbtn { color: var(--muted); font-size: 13px; display: block; margin: 24px auto 0; }
+  .linkbtn { color: var(--muted); font-size: 14px; display: block; margin: 22px auto 0; }
 </style>
 </head>
 <body>
 
-<!-- Écran de connexion -->
+<!-- Connexion -->
 <section id="login" class="login hidden">
   <h1>Dépenses</h1>
   <p>Connecte-toi avec le compte commun du foyer.</p>
@@ -165,16 +165,17 @@
 <section id="app" class="hidden">
   <header>
     <h1 id="title">Historique</h1>
-    <div class="year">
+    <div class="year" id="year-nav">
       <button id="y-prev" aria-label="Année précédente">‹</button>
       <span id="y-label"></span>
       <button id="y-next" aria-label="Année suivante">›</button>
     </div>
+    <button class="gear" id="open-settings" aria-label="Réglages">⚙︎</button>
   </header>
 
-  <div class="total-year">
-    <div class="label">Total dépensé sur l'année</div>
-    <div class="value" id="y-total">0 €</div>
+  <div class="card" id="total-card">
+    <div class="sub">Total dépensé sur l'année</div>
+    <div class="big" id="y-total">0 €</div>
     <div class="sync" id="sync">Chargement…</div>
   </div>
 
@@ -183,80 +184,127 @@
   <div id="view-chart" class="hidden">
     <div class="card">
       <h2>Dépenses par mois (€)</h2>
-      <div class="legend" id="legend"></div>
-      <div class="chart-wrap"><canvas id="chart" role="img" aria-label="Histogramme des dépenses par mois et par catégorie"></canvas></div>
+      <div class="legend" id="legend-chart"></div>
+      <div class="chart-wrap"><canvas id="chart-month" role="img" aria-label="Histogramme des dépenses par mois et par catégorie"></canvas></div>
     </div>
     <div class="card">
       <h2>Total par catégorie</h2>
       <table id="cat-table"></table>
     </div>
-    <button class="linkbtn" id="logout">Se déconnecter</button>
   </div>
+
+  <div id="view-prop" class="hidden"></div>
+  <div id="view-prev" class="hidden"></div>
 
   <button class="fab" id="add" aria-label="Ajouter une dépense">+</button>
 
   <nav>
-    <button id="tab-list" class="on"><span class="ico">☰</span>Historique</button>
-    <button id="tab-chart"><span class="ico">▥</span>Graphique</button>
+    <button id="tab-list" class="on" data-tab="list">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Historique</button>
+    <button id="tab-chart" data-tab="chart">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Graphique</button>
+    <button id="tab-prop" data-tab="prop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.4 6.4"/></svg>Proportions</button>
+    <button id="tab-prev" data-tab="prev">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>Prévision</button>
   </nav>
 </section>
 
-<!-- Formulaire ajout / modification -->
-<div class="sheet-bg hidden" id="sheet-bg">
+<!-- Dépense : ajout / modification -->
+<div class="sheet-bg hidden" id="sheet-exp">
   <form class="sheet" id="form">
-    <h2><span id="form-title">Nouvelle dépense</span><button type="button" id="cancel">Annuler</button></h2>
+    <h2><span id="form-title">Nouvelle dépense</span><button type="button" data-close="sheet-exp">Annuler</button></h2>
     <label for="f-montant">Montant (€)</label>
-    <input id="f-montant" class="big" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off" required>
+    <input id="f-montant" class="amount" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off" required>
     <label>Catégorie</label>
     <div class="cats" id="f-cats"></div>
     <label for="f-date">Date</label>
     <input id="f-date" type="date" required>
     <label for="f-note">Note (facultatif)</label>
-    <input id="f-note" type="text" placeholder="ex. Leclerc, pizzeria…" maxlength="120">
+    <input id="f-note" type="text" placeholder="ex. Leclerc, loyer…" maxlength="120">
     <button class="primary" id="save" type="submit">Enregistrer</button>
     <button class="del hidden" id="delete" type="button">Supprimer cette dépense</button>
     <div class="err" id="form-err"></div>
   </form>
 </div>
 
+<!-- Réglages : catégories -->
+<div class="sheet-bg hidden" id="sheet-set">
+  <div class="sheet">
+    <h2><span>Réglages</span><button type="button" data-close="sheet-set">Fermer</button></h2>
+    <div class="section-title">Catégories</div>
+    <div class="list" id="set-cats"></div>
+    <button class="secondary" id="set-add-cat" type="button">+ Ajouter une catégorie</button>
+    <button class="linkbtn" id="logout" type="button">Se déconnecter</button>
+  </div>
+</div>
+
+<!-- Catégorie : ajout / modification / suppression -->
+<div class="sheet-bg hidden" id="sheet-cat">
+  <form class="sheet" id="cat-form">
+    <h2><span id="cat-title">Nouvelle catégorie</span><button type="button" data-close="sheet-cat">Annuler</button></h2>
+    <label for="c-nom">Nom</label>
+    <input id="c-nom" type="text" maxlength="40" placeholder="ex. Loisirs, Voiture…" required autocomplete="off">
+    <label>Couleur</label>
+    <div class="swatches" id="c-colors"></div>
+    <button class="primary" type="submit" id="c-save">Enregistrer</button>
+    <button class="del hidden" id="c-delete" type="button">Supprimer cette catégorie</button>
+    <div class="danger-zone hidden" id="c-move">
+      <p id="c-move-text"></p>
+      <label for="c-target">Déplacer ces dépenses vers :</label>
+      <select id="c-target"></select>
+      <button class="primary" type="button" id="c-move-go">Déplacer et supprimer</button>
+    </div>
+    <div class="err" id="cat-err"></div>
+  </form>
+</div>
+
 <div class="toast hidden" id="toast"></div>
 
 <script>
-const CATS = [
-  { id: "courses",     label: "Courses",     color: "--c-courses" },
-  { id: "restaurants", label: "Restaurants", color: "--c-restaurants" },
-  { id: "divers",      label: "Divers",      color: "--c-divers" },
-  { id: "pret",        label: "Prêt",        color: "--c-pret" },
-];
 const MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
 const MONTHS_SHORT = ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
+const INITIALS = "JFMAMJJASOND".split("");
+const NB_COLORS = 8;
 const eur = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 const eur0 = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 const $ = (id) => document.getElementById(id);
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-const catOf = (id) => CATS.find(c => c.id === id) || CATS[2];
+const colorVar = (c) => `var(--s${c.couleur})`;
+const colorHex = (c) => css(`--s${c.couleur}`);
+const fmtPct = (x) => (x > 0 && x < 1) ? "<1 %" : Math.round(x) + " %";
+const sum = (a) => a.reduce((s, x) => s + x, 0);
 const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
-let db, year = new Date().getFullYear(), rows = [], chart = null, editing = null, selCat = "courses";
+let db, year = new Date().getFullYear(), rows = [], cats = [], current = "list";
+let editing = null, selCat = null, editingCat = null, catFromForm = false, selColor = 0, seeding = false;
 const openMonths = new Set([new Date().getMonth()]);
+const charts = {};
+const catOf = (id) => cats.find(c => c.id === id) || { id, nom: "Sans catégorie", couleur: 7 };
 
 function toast(msg) {
   const t = $("toast"); t.textContent = msg; t.classList.remove("hidden");
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add("hidden"), 2200);
 }
+function openSheet(id) { $(id).classList.remove("hidden"); }
+function closeSheet(id) { $(id).classList.add("hidden"); }
+document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => closeSheet(b.dataset.close)));
+document.querySelectorAll(".sheet-bg").forEach(bg => bg.addEventListener("click", (e) => { if (e.target === bg) closeSheet(bg.id); }));
 
 // ---------- Démarrage ----------
 async function init() {
-  if (!window.supabase || SUPABASE_URL.startsWith("COLLE")) {
-    document.body.innerHTML = '<div class="login"><h1>Configuration manquante</h1><p>Renseigne SUPABASE_URL et SUPABASE_ANON_KEY en haut du fichier index.html, ou vérifie la connexion internet.</p></div>';
+  const url = String(window.SUPABASE_URL || "").trim().replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
+  const key = String(window.SUPABASE_ANON_KEY || "").trim();
+  if (!window.supabase || !url || url.startsWith("COLLE") || !key || key.startsWith("COLLE")) {
+    document.body.innerHTML = '<div class="login"><h1>Configuration manquante</h1><p>Renseigne SUPABASE_URL et SUPABASE_ANON_KEY dans le fichier config.js, ou vérifie la connexion internet.</p></div>';
     return;
   }
-  db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  db = supabase.createClient(url, key);
   const { data } = await db.auth.getSession();
   db.auth.onAuthStateChange((_e, session) => session ? showApp() : showLogin());
   data.session ? showApp() : showLogin();
 }
-
 function showLogin() { $("app").classList.add("hidden"); $("login").classList.remove("hidden"); }
 
 let started = false;
@@ -264,9 +312,9 @@ function showApp() {
   $("login").classList.add("hidden"); $("app").classList.remove("hidden");
   if (started) return; started = true;
   load();
-  // Mise à jour en direct quand l'autre téléphone ajoute/modifie une dépense
-  db.channel("depenses-live")
+  db.channel("foyer-live")
     .on("postgres_changes", { event: "*", schema: "public", table: "depenses" }, () => load(true))
+    .on("postgres_changes", { event: "*", schema: "public", table: "categories" }, () => load(true))
     .subscribe();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) load(true); });
 }
@@ -274,73 +322,95 @@ function showApp() {
 $("login-form").addEventListener("submit", async (e) => {
   e.preventDefault(); $("login-err").textContent = "";
   const { error } = await db.auth.signInWithPassword({ email: $("email").value.trim(), password: $("pwd").value });
-  if (error) $("login-err").textContent = "Connexion impossible : vérifie l'e-mail et le mot de passe.";
+  if (error) $("login-err").textContent = "Connexion impossible : " + (error.message || "vérifie l'e-mail et le mot de passe.");
 });
-$("logout").addEventListener("click", () => db.auth.signOut());
+$("logout").addEventListener("click", () => { closeSheet("sheet-set"); db.auth.signOut(); });
 
 // ---------- Données ----------
 async function load(silent) {
-  const cacheKey = "cache-" + year;
+  const cacheKey = "cache-v2-" + year;
   if (!silent) {
-    try { const c = JSON.parse(localStorage.getItem(cacheKey) || "null"); if (c) { rows = c; render(); } } catch {}
+    try { const c = JSON.parse(localStorage.getItem(cacheKey) || "null"); if (c) { cats = c.cats; rows = c.rows; render(); } } catch {}
   }
-  const { data, error } = await db.from("depenses")
-    .select("id,date,montant,categorie,note")
-    .gte("date", `${year}-01-01`).lte("date", `${year}-12-31`)
-    .order("date", { ascending: false }).order("created_at", { ascending: false });
-  if (error) { $("sync").textContent = "Hors connexion : affichage de la dernière version"; return; }
-  rows = data.map(r => ({ ...r, montant: Number(r.montant) }));
-  try { localStorage.setItem(cacheKey, JSON.stringify(rows)); } catch {}
+  const [c, d] = await Promise.all([
+    db.from("categories").select("id,nom,couleur,ordre").order("ordre").order("created_at"),
+    db.from("depenses").select("id,date,montant,categorie_id,note")
+      .gte("date", `${year}-01-01`).lte("date", `${year}-12-31`)
+      .order("date", { ascending: false }).order("created_at", { ascending: false }),
+  ]);
+  if (c.error || d.error) {
+    const msg = (c.error || d.error).message || "";
+    $("sync").textContent = /categor/i.test(msg) ? "Base à mettre à jour : lance migration-v2.sql dans Supabase" : "Hors connexion : affichage de la dernière version";
+    return;
+  }
+  if (!c.data.length && !seeding) {
+    seeding = true;
+    await db.from("categories").insert([{ nom: "Fixe", couleur: 0, ordre: 0 }, { nom: "Courses", couleur: 1, ordre: 1 }]);
+    return load(true);
+  }
+  cats = c.data;
+  rows = d.data.map(r => ({ ...r, montant: Number(r.montant) }));
+  try { localStorage.setItem(cacheKey, JSON.stringify({ cats, rows })); } catch {}
   $("sync").textContent = "Synchronisé à " + new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   render();
 }
 
 function byMonth() {
-  const m = Array.from({ length: 12 }, () => ({ total: 0, cats: Object.fromEntries(CATS.map(c => [c.id, 0])), items: [] }));
+  const m = Array.from({ length: 12 }, () => ({ total: 0, cats: {}, items: [] }));
   for (const r of rows) {
     const i = Number(r.date.slice(5, 7)) - 1;
-    m[i].total += r.montant; m[i].cats[r.categorie] = (m[i].cats[r.categorie] || 0) + r.montant; m[i].items.push(r);
+    m[i].total += r.montant;
+    m[i].cats[r.categorie_id] = (m[i].cats[r.categorie_id] || 0) + r.montant;
+    m[i].items.push(r);
   }
   return m;
 }
+// catégories dans l'ordre fixe, + éventuelles catégories inconnues
+function catsInData() {
+  const known = new Set(cats.map(c => c.id));
+  const extra = [...new Set(rows.map(r => r.categorie_id))].filter(id => !known.has(id)).map(catOf);
+  return [...cats, ...extra];
+}
+const chip = (c, txt) => `<span class="chip"><span class="dot" style="background:${colorVar(c)}"></span>${esc(c.nom)}${txt ? " " + txt : ""}</span>`;
+const segBar = (parts) => `<div class="bar">${parts.map(([c, v]) => `<i style="flex:${v};background:${colorVar(c)}"></i>`).join("")}</div>`;
 
 // ---------- Affichage ----------
 function render() {
   $("y-label").textContent = year;
   const months = byMonth();
-  const total = months.reduce((s, m) => s + m.total, 0);
-  $("y-total").textContent = eur.format(total);
-  renderList(months);
-  if (!$("view-chart").classList.contains("hidden")) renderChart(months);
+  $("y-total").textContent = eur.format(sum(months.map(m => m.total)));
+  if (current === "list") renderList(months);
+  if (current === "chart") renderChart(months);
+  if (current === "prop") renderProp(months);
+  if (current === "prev") renderPrev(months);
+  if (!$("sheet-set").classList.contains("hidden")) renderSettings();
 }
-
-function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
 function renderList(months) {
   const el = $("view-list");
   const filled = months.map((m, i) => ({ ...m, i })).filter(m => m.items.length).reverse();
   if (!filled.length) { el.innerHTML = `<div class="empty">Aucune dépense en ${year}.<br>Appuie sur + pour en ajouter une.</div>`; return; }
-  el.innerHTML = filled.map(m => {
+  el.innerHTML = `<div class="hint">Touche un mois pour voir le détail, puis une dépense pour la modifier ou la supprimer.</div>` +
+  filled.map(m => {
     const open = openMonths.has(m.i);
-    const used = CATS.filter(c => m.cats[c.id] > 0);
+    const used = catsInData().filter(c => m.cats[c.id] > 0);
     return `<div class="month">
       <button class="month-head" data-m="${m.i}">
         <span class="name">${MONTHS[m.i]} ${open ? "▾" : "▸"}</span><span class="sum">${eur.format(m.total)}</span>
       </button>
-      <div class="bar">${used.map(c => `<i style="flex:${m.cats[c.id]};background:var(${c.color})"></i>`).join("")}</div>
-      <div class="chips">${used.map(c => `<span class="chip"><span class="dot" style="background:var(${c.color})"></span>${c.label} ${eur.format(m.cats[c.id])}</span>`).join("")}</div>
+      ${segBar(used.map(c => [c, m.cats[c.id]]))}
+      <div class="chips">${used.map(c => chip(c, eur.format(m.cats[c.id]))).join("")}</div>
       ${open ? `<div class="items">${m.items.map(r => {
-        const c = catOf(r.categorie);
+        const c = catOf(r.categorie_id);
         const d = new Date(r.date + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
         return `<button class="item" data-id="${r.id}">
-          <span class="dot" style="background:var(${c.color})"></span>
-          <span class="main"><div class="t">${esc(r.note) || c.label}</div><div class="d">${d} · ${c.label}</div></span>
-          <span class="m">${eur.format(r.montant)}</span></button>`;
+          <span class="dot" style="background:${colorVar(c)}"></span>
+          <span class="main"><div class="t">${esc(r.note) || esc(c.nom)}</div><div class="d">${d} · ${esc(c.nom)}</div></span>
+          <span class="m">${eur.format(r.montant)}</span><span class="chev">›</span></button>`;
       }).join("")}</div>` : ""}
     </div>`;
   }).join("");
 }
-
 $("view-list").addEventListener("click", (e) => {
   const head = e.target.closest(".month-head");
   if (head) { const i = Number(head.dataset.m); openMonths.has(i) ? openMonths.delete(i) : openMonths.add(i); render(); return; }
@@ -348,125 +418,326 @@ $("view-list").addEventListener("click", (e) => {
   if (item) openForm(rows.find(r => r.id === item.dataset.id));
 });
 
-function renderChart(months) {
-  $("legend").innerHTML = CATS.map(c => `<span class="chip"><span class="dot" style="background:var(${c.color})"></span>${c.label}</span>`).join("");
-  const totals = CATS.map(c => months.reduce((s, m) => s + m.cats[c.id], 0));
-  const all = totals.reduce((a, b) => a + b, 0);
-  $("cat-table").innerHTML = CATS.map((c, i) =>
-    `<tr><td><span class="chip"><span class="dot" style="background:var(${c.color})"></span>${c.label}</span></td>
-     <td>${eur.format(totals[i])}${all ? ` <span style="color:var(--muted);font-weight:400">(${Math.round(totals[i] / all * 100)} %)</span>` : ""}</td></tr>`).join("")
-    + `<tr><td><b>Total</b></td><td>${eur.format(all)}</td></tr>`;
-
+// Chart.js : options communes
+function topRadius(ctx) {
+  const i = ctx.dataIndex, ds = ctx.chart.data.datasets;
+  if (!ds[ctx.datasetIndex].data[i]) return 0;
+  for (let k = ctx.datasetIndex + 1; k < ds.length; k++) if (ds[k].data[i] > 0) return 0;
+  return { topLeft: 4, topRight: 4 };
+}
+function drawChart(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart($(id), cfg);
+}
+function scales(stacked, yFmt, yMax) {
+  const color = css("--text-2"), grid = css("--grid");
+  return {
+    x: { stacked, grid: { display: false }, ticks: { color, font: { size: 11 }, maxRotation: 0, autoSkip: false } },
+    y: { stacked, beginAtZero: true, max: yMax, grid: { color: grid }, border: { display: false }, ticks: { color, font: { size: 11 }, callback: yFmt } },
+  };
+}
+function stackDatasets(list, months, valueFn) {
   const surface = css("--surface");
-  const datasets = CATS.map((c, idx) => ({
-    label: c.label,
-    data: months.map(m => Math.round(m.cats[c.id] * 100) / 100),
-    backgroundColor: css(c.color),
-    borderColor: surface, borderWidth: { top: 2, bottom: 0, left: 0, right: 0 },
-    borderSkipped: false,
-    borderRadius: (ctx) => {
-      // arrondi uniquement sur le segment du haut de chaque barre
-      const i = ctx.dataIndex, ds = ctx.chart.data.datasets;
-      if (!ds[ctx.datasetIndex].data[i]) return 0;
-      for (let k = ctx.datasetIndex + 1; k < ds.length; k++) if (ds[k].data[i] > 0) return 0;
-      return { topLeft: 4, topRight: 4 };
-    },
-    maxBarThickness: 22,
+  return list.map(c => ({
+    label: c.nom, data: months.map((m, i) => valueFn(c, m, i)), backgroundColor: colorHex(c),
+    borderColor: surface, borderWidth: { top: 2, bottom: 0, left: 0, right: 0 }, borderSkipped: false,
+    borderRadius: topRadius, maxBarThickness: 22,
   }));
-  const textColor = css("--text-2"), grid = css("--grid");
-  if (chart) chart.destroy();
-  chart = new Chart($("chart"), {
+}
+
+function renderChart(months) {
+  const list = catsInData();
+  $("legend-chart").innerHTML = list.map(c => chip(c)).join("");
+  const totals = list.map(c => sum(months.map(m => m.cats[c.id] || 0)));
+  const all = sum(totals);
+  $("cat-table").innerHTML = list.map((c, i) =>
+    `<tr><td>${chip(c)}</td><td><b>${eur.format(totals[i])}</b>${all ? ` <span class="pct">(${fmtPct(totals[i] / all * 100)})</span>` : ""}</td></tr>`).join("")
+    + `<tr><td><b>Total</b></td><td><b>${eur.format(all)}</b></td></tr>`;
+  drawChart("chart-month", {
     type: "bar",
-    data: { labels: MONTHS_SHORT, datasets },
+    data: { labels: INITIALS, datasets: stackDatasets(list, months, (c, m) => Math.round((m.cats[c.id] || 0) * 100) / 100) },
     options: {
       responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
       interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          filter: (it) => it.raw > 0,
-          callbacks: {
-            title: (it) => MONTHS[it[0].dataIndex] + " " + year,
-            label: (it) => ` ${it.dataset.label} : ${eur.format(it.raw)}`,
-            footer: (it) => "Total : " + eur.format(months[it[0].dataIndex].total),
-          },
-        },
-      },
-      scales: {
-        x: { stacked: true, grid: { display: false }, ticks: { color: textColor, font: { size: 11 }, maxRotation: 0, autoSkip: false,
-             callback: (v, i) => "JFMAMJJASOND"[i] } },
-        y: { stacked: true, beginAtZero: true, grid: { color: grid }, border: { display: false },
-             ticks: { color: textColor, font: { size: 11 }, callback: (v) => eur0.format(v) } },
-      },
+      plugins: { legend: { display: false }, tooltip: {
+        filter: (it) => it.raw > 0,
+        callbacks: {
+          title: (it) => MONTHS[it[0].dataIndex] + " " + year,
+          label: (it) => ` ${it.dataset.label} : ${eur.format(it.raw)}`,
+          footer: (it) => "Total : " + eur.format(months[it[0].dataIndex].total),
+        } } },
+      scales: scales(true, (v) => eur0.format(v)),
+    },
+  });
+}
+
+// ---------- Proportions ----------
+function renderProp(months) {
+  const el = $("view-prop");
+  const list = catsInData();
+  const totals = list.map(c => sum(months.map(m => m.cats[c.id] || 0)));
+  const all = sum(totals);
+  if (!all) { el.innerHTML = `<div class="empty">Aucune dépense en ${year}.</div>`; return; }
+  const sorted = list.map((c, i) => ({ c, v: totals[i] })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+  const filled = months.map((m, i) => ({ ...m, i })).filter(m => m.total > 0).reverse();
+  el.innerHTML = `
+    <div class="card">
+      <h2>Répartition sur l'année ${year}</h2>
+      ${segBar(sorted.map(x => [x.c, x.v]))}
+      <table><tr><th>Catégorie</th><th>Part</th><th>Montant</th></tr>
+      ${sorted.map(x => `<tr><td>${chip(x.c)}</td><td><b>${fmtPct(x.v / all * 100)}</b></td><td>${eur.format(x.v)}</td></tr>`).join("")}
+      </table>
+    </div>
+    <div class="card">
+      <h2>Part de chaque catégorie par mois (%)</h2>
+      <div class="legend">${list.map(c => chip(c)).join("")}</div>
+      <div class="chart-wrap"><canvas id="chart-prop" role="img" aria-label="Proportion des catégories par mois"></canvas></div>
+    </div>
+    ${filled.map(m => {
+      const used = list.filter(c => m.cats[c.id] > 0).sort((a, b) => m.cats[b.id] - m.cats[a.id]);
+      return `<div class="month">
+        <div class="month-head"><span class="name">${MONTHS[m.i]}</span><span class="sum">${eur.format(m.total)}</span></div>
+        ${segBar(used.map(c => [c, m.cats[c.id]]))}
+        <div class="chips">${used.map(c => chip(c, "<b>" + fmtPct(m.cats[c.id] / m.total * 100) + "</b>")).join("")}</div>
+      </div>`;
+    }).join("")}`;
+  drawChart("chart-prop", {
+    type: "bar",
+    data: { labels: INITIALS, datasets: stackDatasets(list, months, (c, m) => m.total ? Math.round((m.cats[c.id] || 0) / m.total * 1000) / 10 : 0) },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { display: false }, tooltip: {
+        filter: (it) => it.raw > 0,
+        callbacks: {
+          title: (it) => MONTHS[it[0].dataIndex] + " " + year,
+          label: (it) => ` ${it.dataset.label} : ${fmtPct(it.raw)} (${eur.format(months[it.dataIndex].cats[list[it.datasetIndex].id] || 0)})`,
+        } } },
+      scales: scales(true, (v) => v + " %", 100),
+    },
+  });
+}
+
+// ---------- Prévision ----------
+// Prévision du mois M = moyenne des mois précédents de l'année qui ont des dépenses.
+function forecastFor(months, m) {
+  const past = months.slice(0, m).filter(x => x.items.length);
+  return past.length ? sum(past.map(x => x.total)) / past.length : null;
+}
+function renderPrev(months) {
+  const el = $("view-prev");
+  const now = new Date(), cm = now.getMonth(), cy = now.getFullYear();
+  const past = months.slice(0, cm).map((m, i) => ({ ...m, i })).filter(m => m.items.length);
+  if (!past.length) {
+    el.innerHTML = `<div class="card"><h2>Prévision ${MONTHS[cm]} ${cy}</h2>
+      <p class="sub">La prévision se calcule à partir des mois précédents de l'année. Il faut au moins un mois terminé avec des dépenses : elle apparaîtra ${cm < 11 ? "en " + MONTHS[cm + 1] : "l'an prochain à partir de février"}.</p></div>`;
+    return;
+  }
+  const prev = sum(past.map(m => m.total)) / past.length;
+  const spent = months[cm].total;
+  const ratio = prev ? spent / prev : 0;
+  const list = catsInData();
+  const perCat = list.map(c => ({ c, prev: sum(past.map(m => m.cats[c.id] || 0)) / past.length, spent: months[cm].cats[c.id] || 0 }))
+    .filter(x => x.prev > 0 || x.spent > 0).sort((a, b) => b.prev - a.prev);
+  const range = past.length === 1 ? MONTHS[past[0].i] : `${MONTHS_SHORT[past[0].i]} à ${MONTHS_SHORT[past[past.length - 1].i]}`;
+  const reste = prev - spent;
+  el.innerHTML = `
+    <div class="card">
+      <div class="sub">Prévision ${MONTHS[cm]} ${cy}</div>
+      <div class="big">${eur.format(prev)}</div>
+      <div class="sync">Moyenne de ${past.length} mois (${range})</div>
+      <div class="progress ${ratio > 1 ? "over" : ""}"><i style="width:${Math.min(100, ratio * 100)}%"></i></div>
+      <div class="kv"><span>Déjà dépensé ce mois</span><b>${eur.format(spent)} <span class="pct">(${fmtPct(ratio * 100)})</span></b></div>
+      <div class="kv" style="margin-top:4px"><span>${reste >= 0 ? "Reste estimé" : "Dépassement"}</span><b>${eur.format(Math.abs(reste))}</b></div>
+    </div>
+    <div class="card">
+      <h2>Prévision par catégorie</h2>
+      <table><tr><th>Catégorie</th><th>Prévu</th><th>Dépensé</th></tr>
+      ${perCat.map(x => `<tr><td>${chip(x.c)}</td><td><b>${eur.format(x.prev)}</b></td><td>${eur.format(x.spent)}</td></tr>`).join("")}
+      </table>
+    </div>
+    <div class="card">
+      <h2>Réel et prévision par mois (€)</h2>
+      <div class="legend">
+        <span class="chip"><span class="dot" style="background:var(--s0)"></span>Réel</span>
+        <span class="chip"><span class="line" style="color:var(--s1)"></span>Prévision</span>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-prev" role="img" aria-label="Dépenses réelles et prévisions par mois"></canvas></div>
+    </div>`;
+  const n = cm + 1;
+  const real = months.slice(0, n).map(m => Math.round(m.total * 100) / 100);
+  const fc = Array.from({ length: n }, (_, i) => { const f = forecastFor(months, i); return f == null ? null : Math.round(f * 100) / 100; });
+  drawChart("chart-prev", {
+    data: {
+      labels: INITIALS.slice(0, n),
+      datasets: [
+        { type: "line", label: "Prévision", data: fc, borderColor: css("--s1"), backgroundColor: css("--s1"), borderWidth: 2,
+          borderDash: [5, 4], pointRadius: 4, pointHoverRadius: 6, spanGaps: true, order: 0 },
+        { type: "bar", label: "Réel", data: real, backgroundColor: css("--s0"), borderRadius: { topLeft: 4, topRight: 4 },
+          borderSkipped: "bottom", maxBarThickness: 22, order: 1 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { display: false }, tooltip: { filter: (it) => it.raw != null, callbacks: {
+        title: (it) => MONTHS[it[0].dataIndex] + (it[0].dataIndex === cm ? " (en cours)" : ""),
+        label: (it) => ` ${it.dataset.label} : ${eur.format(it.raw)}`,
+      } } },
+      scales: scales(false, (v) => eur0.format(v)),
     },
   });
 }
 
 // ---------- Navigation ----------
+const TITLES = { list: "Historique", chart: "Graphique", prop: "Proportions", prev: "Prévision" };
 function tab(name) {
-  const chartOn = name === "chart";
-  $("view-list").classList.toggle("hidden", chartOn);
-  $("view-chart").classList.toggle("hidden", !chartOn);
-  $("tab-list").classList.toggle("on", !chartOn);
-  $("tab-chart").classList.toggle("on", chartOn);
-  $("title").textContent = chartOn ? "Graphique" : "Historique";
-  if (chartOn) renderChart(byMonth());
+  current = name;
+  for (const t of Object.keys(TITLES)) {
+    $("view-" + t).classList.toggle("hidden", t !== name);
+    $("tab-" + t).classList.toggle("on", t === name);
+  }
+  $("title").textContent = TITLES[name];
+  const isPrev = name === "prev";
+  $("year-nav").classList.toggle("off", isPrev);
+  $("total-card").classList.toggle("hidden", isPrev);
   window.scrollTo(0, 0);
+  const cy = new Date().getFullYear();
+  if (isPrev && year !== cy) { year = cy; load(); } else render();
 }
-$("tab-list").onclick = () => tab("list");
-$("tab-chart").onclick = () => tab("chart");
+document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => tab(b.dataset.tab)));
 $("y-prev").onclick = () => { year--; load(); };
 $("y-next").onclick = () => { year++; load(); };
 
-// ---------- Formulaire ----------
-function drawCats() {
-  $("f-cats").innerHTML = CATS.map(c =>
-    `<button type="button" data-c="${c.id}" class="${c.id === selCat ? "on" : ""}"><span class="dot" style="background:var(${c.color})"></span>${c.label}</button>`).join("");
+// ---------- Formulaire dépense ----------
+function drawFormCats() {
+  $("f-cats").innerHTML = cats.map(c =>
+    `<button type="button" data-c="${c.id}" class="${c.id === selCat ? "on" : ""}"><span class="dot" style="background:${colorVar(c)}"></span><span class="n">${esc(c.nom)}</span></button>`).join("")
+    + `<button type="button" class="add" data-new="1">+ Nouvelle</button>`;
 }
-$("f-cats").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { selCat = b.dataset.c; drawCats(); } });
-
+$("f-cats").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.new) { catFromForm = true; openCat(null); return; }
+  selCat = b.dataset.c; drawFormCats();
+});
 function openForm(row) {
   editing = row || null;
   $("form-title").textContent = row ? "Modifier la dépense" : "Nouvelle dépense";
   $("f-montant").value = row ? String(row.montant).replace(".", ",") : "";
   $("f-date").value = row ? row.date : todayISO();
   $("f-note").value = row ? (row.note || "") : "";
-  selCat = row ? row.categorie : "courses";
+  const last = localStorage.getItem("last-cat");
+  selCat = row ? row.categorie_id : (cats.some(c => c.id === last) ? last : cats[0]?.id);
   $("delete").classList.toggle("hidden", !row);
   $("form-err").textContent = "";
-  drawCats();
-  $("sheet-bg").classList.remove("hidden");
+  drawFormCats();
+  openSheet("sheet-exp");
   if (!row) setTimeout(() => $("f-montant").focus(), 50);
 }
-function closeForm() { $("sheet-bg").classList.add("hidden"); editing = null; }
 $("add").onclick = () => openForm();
-$("cancel").onclick = closeForm;
-$("sheet-bg").addEventListener("click", (e) => { if (e.target.id === "sheet-bg") closeForm(); });
 
 $("form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const montant = Number($("f-montant").value.replace(/\s/g, "").replace(",", "."));
   if (!(montant > 0)) { $("form-err").textContent = "Montant invalide."; return; }
-  const rec = { montant: Math.round(montant * 100) / 100, categorie: selCat, date: $("f-date").value, note: $("f-note").value.trim() || null };
+  if (!selCat) { $("form-err").textContent = "Choisis une catégorie."; return; }
+  const rec = { montant: Math.round(montant * 100) / 100, categorie_id: selCat, date: $("f-date").value, note: $("f-note").value.trim() || null };
   $("save").disabled = true;
-  const q = editing ? db.from("depenses").update(rec).eq("id", editing.id) : db.from("depenses").insert(rec);
-  const { error } = await q;
+  const { error } = editing ? await db.from("depenses").update(rec).eq("id", editing.id) : await db.from("depenses").insert(rec);
   $("save").disabled = false;
   if (error) { $("form-err").textContent = "Échec de l'enregistrement (connexion internet ?)."; return; }
-  const y = Number(rec.date.slice(0, 4));
-  openMonths.add(Number(rec.date.slice(5, 7)) - 1);
+  try { localStorage.setItem("last-cat", selCat); } catch {}
   const wasEdit = !!editing;
-  closeForm(); toast(wasEdit ? "Dépense modifiée" : "Dépense ajoutée");
-  if (y !== year) year = y;
+  openMonths.add(Number(rec.date.slice(5, 7)) - 1);
+  closeSheet("sheet-exp"); editing = null;
+  toast(wasEdit ? "Dépense modifiée" : "Dépense ajoutée");
+  const y = Number(rec.date.slice(0, 4)); if (y !== year && current !== "prev") year = y;
   load(true);
 });
-
 $("delete").addEventListener("click", async () => {
   if (!editing || !confirm("Supprimer cette dépense ?")) return;
   const { error } = await db.from("depenses").delete().eq("id", editing.id);
   if (error) { $("form-err").textContent = "Échec de la suppression."; return; }
-  closeForm(); toast("Dépense supprimée"); load(true);
+  closeSheet("sheet-exp"); editing = null; toast("Dépense supprimée"); load(true);
 });
+
+// ---------- Réglages / catégories ----------
+function renderSettings() {
+  $("set-cats").innerHTML = cats.map(c =>
+    `<button class="item" data-cat="${c.id}"><span class="dot" style="background:${colorVar(c)}"></span>
+     <span class="main"><div class="t">${esc(c.nom)}</div></span><span class="chev">›</span></button>`).join("");
+}
+$("open-settings").onclick = () => { renderSettings(); openSheet("sheet-set"); };
+$("set-cats").addEventListener("click", (e) => { const b = e.target.closest("[data-cat]"); if (b) { catFromForm = false; openCat(cats.find(c => c.id === b.dataset.cat)); } });
+$("set-add-cat").onclick = () => { catFromForm = false; openCat(null); };
+
+function drawColors() {
+  $("c-colors").innerHTML = Array.from({ length: NB_COLORS }, (_, i) =>
+    `<button type="button" data-col="${i}" class="${i === selColor ? "on" : ""}" style="background:var(--s${i})" aria-label="Couleur ${i + 1}"></button>`).join("");
+}
+$("c-colors").addEventListener("click", (e) => { const b = e.target.closest("[data-col]"); if (b) { selColor = Number(b.dataset.col); drawColors(); } });
+
+function openCat(cat) {
+  editingCat = cat || null;
+  $("cat-title").textContent = cat ? "Modifier la catégorie" : "Nouvelle catégorie";
+  $("c-nom").value = cat ? cat.nom : "";
+  if (cat) selColor = cat.couleur;
+  else { const used = new Set(cats.map(c => c.couleur)); selColor = [...Array(NB_COLORS).keys()].find(i => !used.has(i)) ?? (cats.length % NB_COLORS); }
+  $("c-delete").classList.toggle("hidden", !cat || cats.length <= 1);
+  $("c-move").classList.add("hidden");
+  $("cat-err").textContent = "";
+  drawColors();
+  openSheet("sheet-cat");
+  if (!cat) setTimeout(() => $("c-nom").focus(), 50);
+}
+
+$("cat-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const nom = $("c-nom").value.trim();
+  if (!nom) { $("cat-err").textContent = "Donne un nom à la catégorie."; return; }
+  if (cats.some(c => c.nom.toLowerCase() === nom.toLowerCase() && c.id !== editingCat?.id)) { $("cat-err").textContent = "Cette catégorie existe déjà."; return; }
+  $("c-save").disabled = true;
+  let res;
+  if (editingCat) res = await db.from("categories").update({ nom, couleur: selColor }).eq("id", editingCat.id).select().single();
+  else res = await db.from("categories").insert({ nom, couleur: selColor, ordre: Math.max(-1, ...cats.map(c => c.ordre)) + 1 }).select().single();
+  $("c-save").disabled = false;
+  if (res.error) { $("cat-err").textContent = "Échec de l'enregistrement (connexion internet ?)."; return; }
+  const saved = res.data;
+  const i = cats.findIndex(c => c.id === saved.id);
+  if (i >= 0) cats[i] = saved; else cats.push(saved);
+  closeSheet("sheet-cat");
+  toast(editingCat ? "Catégorie modifiée" : "Catégorie ajoutée");
+  if (catFromForm) { selCat = saved.id; drawFormCats(); }
+  render(); load(true);
+});
+
+$("c-delete").addEventListener("click", async () => {
+  if (!editingCat) return;
+  const { count, error } = await db.from("depenses").select("id", { count: "exact", head: true }).eq("categorie_id", editingCat.id);
+  if (error) { $("cat-err").textContent = "Impossible de vérifier les dépenses (connexion internet ?)."; return; }
+  if (!count) {
+    if (!confirm(`Supprimer la catégorie « ${editingCat.nom} » ?`)) return;
+    return deleteCat();
+  }
+  $("c-move-text").innerHTML = `<b>${count} dépense${count > 1 ? "s" : ""}</b> (toutes années confondues) utilise${count > 1 ? "nt" : ""} « ${esc(editingCat.nom)} ».`;
+  $("c-target").innerHTML = cats.filter(c => c.id !== editingCat.id).map(c => `<option value="${c.id}">${esc(c.nom)}</option>`).join("");
+  $("c-move").classList.remove("hidden");
+});
+$("c-move-go").addEventListener("click", async () => {
+  const target = $("c-target").value;
+  if (!editingCat || !target) return;
+  const { error } = await db.from("depenses").update({ categorie_id: target }).eq("categorie_id", editingCat.id);
+  if (error) { $("cat-err").textContent = "Échec du déplacement des dépenses."; return; }
+  deleteCat();
+});
+async function deleteCat() {
+  const { error } = await db.from("categories").delete().eq("id", editingCat.id);
+  if (error) { $("cat-err").textContent = "Échec de la suppression."; return; }
+  cats = cats.filter(c => c.id !== editingCat.id);
+  if (selCat === editingCat.id) selCat = cats[0]?.id;
+  closeSheet("sheet-cat"); toast("Catégorie supprimée");
+  render(); load(true);
+}
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 init();
