@@ -48,11 +48,11 @@
   .year { display: flex; align-items: center; gap: 4px; flex: none; }
   .year button { width: 36px; height: 36px; border-radius: 18px; font-size: 20px; color: var(--accent); }
   .year span { font-weight: 600; min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; }
-  .year.off { visibility: hidden; }
-  .mfilter { display: flex; gap: 6px; overflow-x: auto; padding: 0 16px 10px; scrollbar-width: none; }
-  .mfilter::-webkit-scrollbar { display: none; }
-  .mfilter button { flex: none; padding: 6px 12px; border-radius: 16px; border: 1px solid var(--border); background: var(--surface); font-size: 14px; color: var(--text-2); }
-  .mfilter button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .year.off { display: none; }
+  .mfilter { padding: 0 16px 10px; }
+  .mfilter select { font-size: 16px; font-weight: 600; padding: 10px 12px; background: var(--surface); color: var(--accent); }
+  .gear.spin { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .card { margin: 0 16px 12px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
   .card h2 { font-size: 15px; margin: 0 0 10px; font-weight: 600; }
@@ -106,7 +106,7 @@
   .kv b { color: var(--text); font-variant-numeric: tabular-nums; }
   .mnav { display: flex; align-items: center; justify-content: space-between; margin: -4px -6px 8px; }
   .mnav button { width: 40px; height: 40px; border-radius: 20px; font-size: 22px; color: var(--accent); }
-  .mnav span { font-weight: 600; font-size: 17px; text-transform: capitalize; }
+  .mnav select { width: auto; font-weight: 600; font-size: 17px; border: 0; background: transparent; color: var(--text); padding: 6px 4px; text-align: center; }
   .row-date { display: flex; gap: 10px; align-items: center; }
   .row-date input { flex: 1; }
 
@@ -169,9 +169,9 @@
   <p>Connecte-toi avec le compte commun du foyer.</p>
   <form id="login-form">
     <label for="email">E-mail</label>
-    <input id="email" type="email" autocomplete="username" required>
+    <input id="email" name="email" type="email" autocomplete="username" required>
     <label for="pwd">Mot de passe</label>
-    <input id="pwd" type="password" autocomplete="current-password" required>
+    <input id="pwd" name="password" type="password" autocomplete="current-password" required>
     <button class="primary" type="submit">Se connecter</button>
     <div class="err" id="login-err"></div>
   </form>
@@ -187,9 +187,10 @@
         <span id="y-label"></span>
         <button id="y-next" aria-label="Année suivante">›</button>
       </div>
+      <button class="gear" id="refresh" aria-label="Actualiser">↻</button>
       <button class="gear" id="open-settings" aria-label="Réglages">⚙︎</button>
     </div>
-    <div class="mfilter" id="mfilter"></div>
+    <div class="mfilter" id="mfilter-row"><select id="mfilter" aria-label="Période affichée"></select></div>
   </header>
 
   <div class="card" id="total-card">
@@ -336,12 +337,16 @@ async function init() {
     document.body.innerHTML = '<div class="login"><h1>Configuration manquante</h1><p>Renseigne SUPABASE_URL et SUPABASE_ANON_KEY dans le fichier config.js, ou vérifie la connexion internet.</p></div>';
     return;
   }
-  db = supabase.createClient(url, key);
+  db = supabase.createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, storage: window.localStorage } });
+  try { $("email").value = localStorage.getItem("last-email") || ""; } catch {}
   const { data } = await db.auth.getSession();
   db.auth.onAuthStateChange((_e, session) => session ? showApp() : showLogin());
   data.session ? showApp() : showLogin();
 }
-function showLogin() { $("app").classList.add("hidden"); $("login").classList.remove("hidden"); }
+function showLogin() {
+  $("app").classList.add("hidden"); $("login").classList.remove("hidden");
+  setTimeout(() => ($("email").value ? $("pwd") : $("email")).focus(), 50);
+}
 
 let started = false;
 function showApp() {
@@ -359,7 +364,10 @@ function showApp() {
 $("login-form").addEventListener("submit", async (e) => {
   e.preventDefault(); $("login-err").textContent = "";
   const { error } = await db.auth.signInWithPassword({ email: $("email").value.trim(), password: $("pwd").value });
-  if (error) $("login-err").textContent = "Connexion impossible : " + (error.message || "vérifie l'e-mail et le mot de passe.");
+  if (error) { $("login-err").textContent = "Connexion impossible : " + (error.message || "vérifie l'e-mail et le mot de passe."); return; }
+  try { localStorage.setItem("last-email", $("email").value.trim()); } catch {}
+  // demande au navigateur de ne pas effacer les données de l'app (connexion comprise)
+  try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
 });
 $("logout").addEventListener("click", () => { closeSheet("sheet-set"); db.auth.signOut(); });
 
@@ -454,7 +462,7 @@ const FILTERED = ["list", "chart", "prop"];
 function render() {
   $("y-label").textContent = year;
   const showFilter = FILTERED.includes(current);
-  $("mfilter").classList.toggle("hidden", !showFilter);
+  $("mfilter-row").classList.toggle("hidden", !showFilter);
   if (showFilter) renderFilter();
   const months = byMonth();
   const tot = fMonth == null ? sum(months.map(m => m.total)) : months[fMonth].total;
@@ -468,16 +476,14 @@ function render() {
   if (!$("sheet-set").classList.contains("hidden")) renderSettings();
 }
 
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 function renderFilter() {
-  const el = $("mfilter");
-  el.innerHTML = `<button data-f="" class="${fMonth == null ? "on" : ""}">Année</button>` +
-    MONTHS_SHORT.map((m, i) => `<button data-f="${i}" class="${fMonth === i ? "on" : ""}">${m.replace(".", "")}</button>`).join("");
-  const on = el.querySelector(".on");
-  if (on && fMonth != null) on.scrollIntoView({ block: "nearest", inline: "center" });
+  $("mfilter").innerHTML = `<option value="">Toute l'année ${year}</option>` +
+    MONTHS.map((m, i) => `<option value="${i}">${cap(m)} ${year}</option>`).join("");
+  $("mfilter").value = fMonth == null ? "" : String(fMonth);
 }
-$("mfilter").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-f]"); if (!b) return;
-  fMonth = b.dataset.f === "" ? null : Number(b.dataset.f);
+$("mfilter").addEventListener("change", (e) => {
+  fMonth = e.target.value === "" ? null : Number(e.target.value);
   if (fMonth != null) openMonths.add(fMonth);
   render(); window.scrollTo(0, 0);
 });
@@ -742,7 +748,7 @@ function renderBilan() {
 
   el.innerHTML = `
     <div class="card">
-      <div class="mnav"><button id="b-prev" aria-label="Mois précédent">‹</button><span>${MONTHS[bMonth]} ${year}</span><button id="b-next" aria-label="Mois suivant">›</button></div>
+      <div class="mnav"><button id="b-prev" aria-label="Mois précédent">‹</button><select id="b-month" aria-label="Mois">${MONTHS.map((m, i) => `<option value="${i}" ${i === bMonth ? "selected" : ""}>${cap(m)} ${year}</option>`).join("")}</select><button id="b-next" aria-label="Mois suivant">›</button></div>
       <div class="sub">${isCur ? "Il reste ce mois-ci" : "Il est resté en " + MONTHS[bMonth]}</div>
       <div class="big ${sign(reste)}">${signed(reste)}</div>
       <div class="kv"><span>Revenus</span><b>${eur.format(tRev)}</b></div>
@@ -809,6 +815,7 @@ function renderBilan() {
 
   $("b-prev").onclick = () => stepBilan(-1);
   $("b-next").onclick = () => stepBilan(1);
+  $("b-month").onchange = (e) => { bMonth = Number(e.target.value); atDate = null; renderBilan(); };
   $("b-date").onchange = (e) => { if (e.target.value) { atDate = e.target.value; renderBilan(); } };
   if ($("b-copy")) $("b-copy").onclick = () => copyPrevRevenus(py, pm);
 }
@@ -943,6 +950,13 @@ function renderSettings() {
   $("set-sources").innerHTML = listHTML(sources, "rev");
 }
 $("open-settings").onclick = () => { renderSettings(); openSheet("sheet-set"); };
+$("refresh").onclick = async () => {
+  const b = $("refresh"); if (b.classList.contains("spin")) return;
+  b.classList.add("spin");
+  await Promise.all([load(true), new Promise(r => setTimeout(r, 600))]);
+  b.classList.remove("spin");
+  toast(/Synchronisé/.test($("sync").textContent) ? "À jour" : "Pas de connexion");
+};
 for (const id of ["set-cats", "set-sources"]) $(id).addEventListener("click", (e) => {
   const b = e.target.closest("[data-cat]"); if (!b) return;
   catFromForm = false; openCat(KINDS[b.dataset.kind].list().find(c => c.id === b.dataset.cat), b.dataset.kind);
