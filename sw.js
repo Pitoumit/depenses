@@ -1,5 +1,5 @@
 // Met en cache l'interface pour un démarrage rapide. Les données viennent toujours de Supabase.
-const CACHE = "depenses-v7";
+const CACHE = "depenses-v9";
 const SHELL = ["./", "index.html", "config.js", "manifest.webmanifest", "apple-touch-icon.png", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -14,7 +14,8 @@ self.addEventListener("fetch", (e) => {
   const isShell = url.origin === location.origin || url.hostname === "cdn.jsdelivr.net";
   if (!isShell) return; // appels Supabase : jamais en cache
   e.respondWith(
-    fetch(e.request)
+    // "no-cache" : toujours vérifier auprès du serveur (évite d'attendre ~10 min après une mise à jour)
+    fetch(e.request, url.origin === location.origin ? { cache: "no-cache" } : {})
       .then((res) => { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return res; })
       .catch(() => caches.match(e.request))
   );

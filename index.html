@@ -25,6 +25,7 @@
     --s4: #e87ba4; --s5: #008300; --s6: #6250d6; --s7: #e34948;
     --s8: #0e9aa7; --s9: #8c5a2b; --s10: #1f3f8f; --s11: #7fb800;
     --s12: #b0249f; --s13: #5f6b7a; --s14: #8a8a00; --s15: #ff8a65;
+    --shadow: 0 1px 2px rgba(20,20,15,.05), 0 0 0 1px rgba(20,20,15,.045);
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -36,6 +37,7 @@
       --s4: #d55181; --s5: #008300; --s6: #9085e9; --s7: #e66767;
       --s8: #22b5c2; --s9: #b07a45; --s10: #5f7fd6; --s11: #8fcf1a;
       --s12: #d057c3; --s13: #8a96a6; --s14: #b0b02a; --s15: #ff9e7f;
+      --shadow: 0 0 0 1px rgba(255,255,255,.05);
     }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -44,34 +46,41 @@
   body { padding: env(safe-area-inset-top) 0 calc(150px + env(safe-area-inset-bottom)); min-height: 100vh; }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
   .hidden { display: none !important; }
+  .ic { width: 1em; height: 1em; vertical-align: -0.14em; flex: none; }
+  .gear .ic, .year button .ic, .mnav button .ic { width: 22px; height: 22px; vertical-align: middle; }
 
   header { position: sticky; top: 0; z-index: 5; background: var(--bg); padding-top: env(safe-area-inset-top); margin-top: calc(-1 * env(safe-area-inset-top)); }
   .hrow { padding: 12px 16px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  header h1 { font-size: 22px; margin: 0; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .gear { width: 36px; height: 36px; border-radius: 18px; font-size: 20px; color: var(--accent); flex: none; }
+  header h1 { font-size: 26px; letter-spacing: -0.02em; margin: 0; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gear { width: 36px; height: 36px; border-radius: 18px; color: var(--accent); flex: none; display: inline-flex; align-items: center; justify-content: center; }
+  .gear:active, .year button:active { background: var(--track); }
   .year { display: flex; align-items: center; gap: 4px; flex: none; }
-  .year button { width: 36px; height: 36px; border-radius: 18px; font-size: 20px; color: var(--accent); }
+  .year button { width: 32px; height: 36px; border-radius: 18px; color: var(--accent); display: inline-flex; align-items: center; justify-content: center; }
   .year span { font-weight: 600; min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; }
   .year.off { display: none; }
-  .mfilter { padding: 0 16px 8px; }
-  .mfilter select { width: auto; font-size: 14px; font-weight: 600; padding: 6px 12px; border-radius: 16px; background: var(--surface); color: var(--accent); }
+  .mfilter { padding: 0 16px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .sbtn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 16px; background: var(--surface); box-shadow: var(--shadow); color: var(--text-2); font-size: 14px; }
+  .mfilter select { width: auto; font-size: 14px; font-weight: 600; padding: 6px 12px; border-radius: 16px; background: var(--surface); color: var(--accent); border: 0; box-shadow: var(--shadow); }
   button.chip { padding: 2px 0; font: inherit; font-size: inherit; color: inherit; text-align: left; }
   .chip.fc { cursor: pointer; }
   .chip.dim { opacity: .4; }
   .chip.on { font-weight: 700; color: var(--text); }
+  .fpill .ic { width: 15px; height: 15px; }
   .fpill { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #fff; border-radius: 16px; padding: 6px 12px; font-size: 14px; font-weight: 600; }
   .fbar { text-align: center; margin: 0 16px 12px; }
   .gear.spin { animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .card { margin: 0 16px 12px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+  .card { margin: 0 16px 12px; padding: 16px; background: var(--surface); border-radius: 16px; box-shadow: var(--shadow); }
   .card h2 { font-size: 15px; margin: 0 0 10px; font-weight: 600; }
   .card .sub { color: var(--text-2); font-size: 13px; }
-  .big { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .big { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
   .sync { font-size: 12px; color: var(--muted); margin-top: 2px; }
   .pos, .kv b.pos { color: var(--good); } .neg, .kv b.neg { color: var(--danger); }
 
-  .month { margin: 0 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .month { margin: 0 16px 12px; background: var(--surface); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+  .month-head .ic { color: var(--muted); transition: transform .2s; margin-left: 6px; }
+  .month-head .ic.open { transform: rotate(90deg); }
   .month-head { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; text-align: left; }
   .month-head .name { font-weight: 600; text-transform: capitalize; }
   .month-head .sum { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -91,7 +100,8 @@
   .item .m { font-weight: 600; font-variant-numeric: tabular-nums; }
   .wk { display: flex; justify-content: space-between; padding: 8px 16px; background: var(--bg); font-size: 13px; color: var(--text-2); border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
   .wk b { color: var(--text); }
-  .chev { color: var(--muted); font-size: 18px; }
+  .chev { color: var(--muted); display: inline-flex; }
+  .item .d .ic { color: var(--muted); margin-right: 2px; }
   .hint { text-align: center; color: var(--muted); font-size: 12px; margin: 0 16px 12px; }
   .empty { text-align: center; color: var(--muted); padding: 40px 24px; }
 
@@ -115,7 +125,7 @@
   .kv { display: flex; justify-content: space-between; font-size: 14px; color: var(--text-2); margin-top: 4px; }
   .kv b { color: var(--text); font-variant-numeric: tabular-nums; }
   .mnav { display: flex; align-items: center; justify-content: space-between; margin: -4px -6px 8px; }
-  .mnav button { width: 40px; height: 40px; border-radius: 20px; font-size: 22px; color: var(--accent); }
+  .mnav button { width: 40px; height: 40px; border-radius: 20px; color: var(--accent); display: inline-flex; align-items: center; justify-content: center; }
   .mnav select { width: auto; font-weight: 600; font-size: 17px; border: 0; background: transparent; color: var(--text); padding: 6px 4px; text-align: center; }
   .row-date { display: flex; gap: 10px; align-items: center; }
   .row-date input { flex: 1; }
@@ -128,10 +138,24 @@
   nav button.on { color: var(--accent); }
   .fab { position: fixed; right: 18px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 11;
     width: 58px; height: 58px; border-radius: 29px; background: var(--accent); color: #fff;
-    font-size: 32px; line-height: 58px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+    font-size: 32px; line-height: 58px; box-shadow: 0 6px 18px rgba(0,0,0,.22);
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; transition: transform .15s; }
+  .fab.held { transform: scale(1.14); }
   .fab.rev { background: var(--good); }
 
-  .sheet-bg { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; }
+  .sheet-bg { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; animation: fadein .2s ease-out; }
+  .sheet-bg > .sheet { animation: slideup .28s cubic-bezier(.2,.8,.2,1); }
+  #sheet-search, #sheet-cl { z-index: 19; }
+  @keyframes fadein { from { background: rgba(0,0,0,0); } }
+  @keyframes slideup { from { transform: translateY(100%); } }
+  @media (prefers-reduced-motion: reduce) { .sheet-bg, .sheet-bg > .sheet { animation: none; } }
+  .sugg { display: flex; gap: 6px; overflow-x: auto; margin-top: 8px; scrollbar-width: none; }
+  .sugg::-webkit-scrollbar { display: none; }
+  .sugg button { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 16px; background: var(--bg); border: 1px solid var(--border); font-size: 14px; }
+  .quick-cat { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 15px; color: var(--text-2); }
+  .quick-cat button { color: var(--accent); }
+  .tot-line { display: flex; justify-content: space-between; color: var(--text-2); font-size: 14px; margin: 10px 2px; }
+  .tot-line b { color: var(--text); font-variant-numeric: tabular-nums; }
   #sheet-cat, #sheet-rec { z-index: 25; }
   .rep { margin-top: 14px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
   .rep-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 15px; }
@@ -170,7 +194,7 @@
   .list .item { padding: 13px 14px; }
   .primary { width: 100%; margin-top: 18px; padding: 15px; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 600; font-size: 17px; }
   .primary:disabled { opacity: .5; }
-  .secondary { width: 100%; margin-top: 12px; padding: 13px; border-radius: 12px; border: 1.5px dashed var(--border); color: var(--accent); }
+  .secondary { width: 100%; margin-top: 12px; padding: 13px; border-radius: 12px; border: 1.5px dashed var(--border); color: var(--accent); display: flex; align-items: center; justify-content: center; gap: 8px; }
   .del { width: 100%; margin-top: 10px; padding: 13px; color: var(--danger); }
   .danger-zone { margin-top: 14px; padding: 14px; border-radius: 12px; border: 1px solid var(--danger); }
   .danger-zone p { margin: 0 0 4px; font-size: 14px; }
@@ -209,14 +233,14 @@
     <div class="hrow">
       <h1 id="title">Historique</h1>
       <div class="year" id="year-nav">
-        <button id="y-prev" aria-label="Année précédente">‹</button>
+        <button id="y-prev" aria-label="Année précédente"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
         <span id="y-label"></span>
-        <button id="y-next" aria-label="Année suivante">›</button>
+        <button id="y-next" aria-label="Année suivante"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
       </div>
-      <button class="gear" id="refresh" aria-label="Actualiser">↻</button>
-      <button class="gear" id="open-settings" aria-label="Réglages">⚙︎</button>
+      <button class="gear" id="refresh" aria-label="Actualiser"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.5 3.5V9H15"/></svg></button>
+      <button class="gear" id="open-settings" aria-label="Réglages"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg></button>
     </div>
-    <div class="mfilter" id="mfilter-row"><select id="mfilter" aria-label="Période affichée"></select></div>
+    <div class="mfilter" id="mfilter-row"><select id="mfilter" aria-label="Période affichée"></select><button class="sbtn" id="open-search" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>Rechercher</button></div>
   </header>
 
   <div class="card" id="total-card">
@@ -253,14 +277,15 @@
     <h2><span id="form-title">Nouvelle dépense</span><button type="button" data-close="sheet-exp">Annuler</button></h2>
     <label for="f-montant">Montant (€)</label>
     <input id="f-montant" class="amount" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off" required>
+    <label for="f-note">Note (facultatif)</label>
+    <input id="f-note" type="text" maxlength="120" autocomplete="off" enterkeyhint="done">
+    <div class="sugg" id="f-sugg"></div>
     <label id="f-cat-label">Catégorie</label>
     <div class="cats" id="f-cats"></div>
     <label for="f-date">Date</label>
     <input id="f-date" type="date" required>
-    <label for="f-note">Note (facultatif)</label>
-    <input id="f-note" type="text" maxlength="120">
     <div class="rep" id="f-rep-box">
-      <div class="rep-row" id="f-rep-toggle-row"><span>🔁 Répéter cette dépense</span><input type="checkbox" class="switch" id="f-rep" aria-label="Répéter cette dépense"></div>
+      <div class="rep-row" id="f-rep-toggle-row"><span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2.5l3.5 3.5L17 9.5"/><path d="M3.5 11V10a4 4 0 0 1 4-4h13"/><path d="M7 21.5L3.5 18 7 14.5"/><path d="M20.5 13v1a4 4 0 0 1-4 4h-13"/></svg> Répéter cette dépense</span><input type="checkbox" class="switch" id="f-rep" aria-label="Répéter cette dépense"></div>
       <div id="f-rep-opts" class="hidden">
         <div class="seg" id="f-rep-mode"><button type="button" data-mode="all">Tous les mois</button><button type="button" data-mode="some">Certains mois</button></div>
         <div class="mgrid hidden" id="f-rep-months"></div>
@@ -292,7 +317,7 @@
       <button class="secondary" id="set-add-src" type="button">+ Ajouter une source</button>
     </div>
     <div class="section-title">Sauvegarde</div>
-    <button class="secondary" id="export" type="button">⬇︎ Exporter toutes les données (CSV)</button>
+    <button class="secondary" id="export" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M5 20.5h14"/></svg><span>Exporter toutes les données (CSV)</span></button>
     <button class="linkbtn" id="logout" type="button">Se déconnecter</button>
   </div>
 </div>
@@ -347,9 +372,33 @@
   </div>
 </div>
 
+<!-- Saisie rapide (appui long sur +) -->
+<div class="sheet-bg hidden" id="sheet-quick">
+  <form class="sheet" id="quick-form">
+    <h2><span>Saisie rapide</span><button type="button" data-close="sheet-quick">Annuler</button></h2>
+    <input id="q-montant" class="amount" type="text" inputmode="decimal" placeholder="0,00 €" autocomplete="off" aria-label="Montant" enterkeyhint="done">
+    <div class="quick-cat"><span id="q-cat"></span><button type="button" id="q-more">Plus d'options</button></div>
+    <button class="primary" type="submit" id="q-save">Ajouter</button>
+    <div class="err" id="q-err"></div>
+  </form>
+</div>
+
+<!-- Recherche -->
+<div class="sheet-bg hidden" id="sheet-search">
+  <div class="sheet" style="min-height:70vh">
+    <h2><span>Rechercher</span><button type="button" data-close="sheet-search">Fermer</button></h2>
+    <input id="s-q" type="search" placeholder="Note ou catégorie (ex. Leclerc)" autocomplete="off" enterkeyhint="search" aria-label="Rechercher">
+    <div class="tot-line" id="s-tot"></div>
+    <div class="list" id="s-res"></div>
+  </div>
+</div>
+
 <div class="toast hidden" id="toast"></div>
 
 <script>
+const I = {
+  chevL: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>', chevR: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>', repeat: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2.5l3.5 3.5L17 9.5"/><path d="M3.5 11V10a4 4 0 0 1 4-4h13"/><path d="M7 21.5L3.5 18 7 14.5"/><path d="M20.5 13v1a4 4 0 0 1-4 4h-13"/></svg>', x: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7L7 17M7 7l10 10"/></svg>', copy: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.5 3.5V9H15"/></svg>',
+};
 const MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
 const MONTHS_SHORT = ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
 const INITIALS = "JFMAMJJASOND".split("");
@@ -389,7 +438,8 @@ let fMonth = null;                    // filtre : null = toute l'année, sinon 0
 let fCat = null;                      // filtre catégorie de l'Historique (liste uniquement)
 let bMonth = new Date().getMonth();   // mois affiché dans le Bilan
 let atDate = null;                    // date choisie dans « Où en étions-nous le… »
-let editing = null, formKind = "dep", selCat = null;
+let editing = null, formKind = "dep", selCat = null, catTouched = false;
+let noteIdx = new Map();   // note (minuscules) -> { note, cat, n, last }
 let editingCat = null, catKind = "dep", catFromForm = false, selColor = 0;
 const seeded = { dep: false, rev: false };
 const openMonths = new Set([new Date().getMonth()]);
@@ -437,6 +487,7 @@ function showApp() {
   if (started) return; started = true;
   tab("list");
   load();
+  loadNotes();
   const ch = db.channel("foyer-live");
   for (const t of ["depenses", "categories", "revenus", "sources_revenu", "recurrences"])
     ch.on("postgres_changes", { event: "*", schema: "public", table: t }, () => load(true));
@@ -611,19 +662,19 @@ $("mfilter").addEventListener("change", (e) => {
   render(); window.scrollTo(0, 0);
 });
 
-function itemHTML(r, kind = "dep") {
+function itemHTML(r, kind = "dep", withYear = false) {
   const c = kind === "dep" ? catOf(r.categorie_id) : srcOf(r.source_id);
-  const d = new Date(r.date + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+  const d = new Date(r.date + "T12:00:00").toLocaleDateString("fr-FR", withYear ? { day: "numeric", month: "short", year: "numeric" } : { weekday: "short", day: "numeric", month: "short" });
   return `<button class="item" data-id="${r.id}" data-kind="${kind}">
     <span class="dot" style="background:${colorVar(c)}"></span>
-    <span class="main"><div class="t">${esc(r.note) || esc(c.nom)}</div><div class="d">${r.recurrence_id ? "🔁 " : ""}${d} · ${esc(c.nom)}</div></span>
-    <span class="m">${kind === "rev" ? "+" : ""}${eur.format(r.montant)}</span><span class="chev">›</span></button>`;
+    <span class="main"><div class="t">${esc(r.note) || esc(c.nom)}</div><div class="d">${r.recurrence_id ? I.repeat + " " : ""}${d} · ${esc(c.nom)}</div></span>
+    <span class="m">${kind === "rev" ? "+" : ""}${eur.format(r.montant)}</span><span class="chev">${I.chevR}</span></button>`;
 }
 
 function filterBar(hint) {
   if (!fCat) return `<div class="hint">${hint}</div>`;
   const c = catOf(fCat);
-  return `<div class="fbar"><button type="button" class="fpill" data-fclear="1">${esc(c.nom)} uniquement ✕</button></div>`;
+  return `<div class="fbar"><button type="button" class="fpill" data-fclear="1">${esc(c.nom)} uniquement ${I.x}</button></div>`;
 }
 const keep = (r) => !fCat || r.categorie_id === fCat;
 function renderList(months) {
@@ -663,7 +714,7 @@ function renderList(months) {
     const its = m.items.filter(keep);
     return `<div class="month">
       <button class="month-head" data-m="${m.i}">
-        <span class="name">${MONTHS[m.i]} ${open ? "▾" : "▸"}</span><span class="sum">${eur.format(m.total)}</span>
+        <span class="name">${MONTHS[m.i]}<span class="ic ${open ? "open" : ""}" style="display:inline-block">${I.chevR}</span></span><span class="sum">${eur.format(m.total)}</span>
       </button>
       ${segBar(used.map(c => [c, m.cats[c.id]]))}
       <div class="chips">${used.map(c => chipBtn(c, eur.format(m.cats[c.id]))).join("")}</div>
@@ -908,7 +959,7 @@ function renderBilan() {
 
   el.innerHTML = `
     <div class="card">
-      <div class="mnav"><button id="b-prev" aria-label="Mois précédent">‹</button><select id="b-month" aria-label="Mois">${MONTHS.map((m, i) => `<option value="${i}" ${i === bMonth ? "selected" : ""}>${cap(m)} ${year}</option>`).join("")}</select><button id="b-next" aria-label="Mois suivant">›</button></div>
+      <div class="mnav"><button id="b-prev" aria-label="Mois précédent">${I.chevL}</button><select id="b-month" aria-label="Mois">${MONTHS.map((m, i) => `<option value="${i}" ${i === bMonth ? "selected" : ""}>${cap(m)} ${year}</option>`).join("")}</select><button id="b-next" aria-label="Mois suivant">${I.chevR}</button></div>
       <div class="sub">${isCur ? "Il reste ce mois-ci" : "Il est resté en " + MONTHS[bMonth]}</div>
       <div class="big ${sign(reste)}">${signed(reste)}</div>
       <div class="kv"><span>Revenus</span><b>${eur.format(tRev)}</b></div>
@@ -936,7 +987,7 @@ function renderBilan() {
       ${mRev.length ? `<div class="items">${mRev.map(r => itemHTML(r, "rev")).join("")}</div>`
         : `<div class="chips">Aucun revenu saisi pour ce mois.</div>`}
     </div>
-    ${!mRev.length ? `<div style="margin:0 16px 12px"><button class="secondary" id="b-copy" type="button" style="margin-top:0">↻ Reprendre les revenus de ${MONTHS[pm]}</button></div>` : ""}
+    ${!mRev.length ? `<div style="margin:0 16px 12px"><button class="secondary" id="b-copy" type="button" style="margin-top:0">${I.copy}Reprendre les revenus de ${MONTHS[pm]}</button></div>` : ""}
 
     <div class="card">
       <h2>Mois par mois · ${year}</h2>
@@ -1037,7 +1088,44 @@ function drawFormCats() {
 $("f-cats").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   if (b.dataset.new) { catFromForm = true; openCat(null, formKind); return; }
-  selCat = b.dataset.c; drawFormCats();
+  selCat = b.dataset.c; catTouched = true; drawFormCats();
+});
+// ---------- Notes déjà utilisées : suggestions + catégorie associée ----------
+function addNote(note, cat, date, fromDb) {
+  const t = String(note || "").trim(); if (!t) return;
+  const k = t.toLowerCase(), e = noteIdx.get(k);
+  if (!e) { noteIdx.set(k, { note: t, cat, n: 1, last: date }); return; }
+  e.n++;
+  if (!fromDb || date >= e.last) { e.cat = cat; e.last = date; }
+}
+async function loadNotes() {
+  const { data, error } = await db.from("depenses").select("note,categorie_id,date").not("note", "is", null).order("date", { ascending: false }).limit(1000);
+  if (error) return;
+  noteIdx = new Map();
+  for (const r of data) addNote(r.note, r.categorie_id, r.date, true);
+}
+function drawSugg() {
+  const el = $("f-sugg");
+  if (formKind !== "dep") { el.innerHTML = ""; return; }
+  const q = $("f-note").value.trim().toLowerCase();
+  let list = [...noteIdx.values()].filter(e => cats.some(c => c.id === e.cat));
+  if (q) list = list.filter(e => e.note.toLowerCase().includes(q) && e.note.toLowerCase() !== q)
+    .sort((a, b) => (b.note.toLowerCase().startsWith(q) - a.note.toLowerCase().startsWith(q)) || b.n - a.n);
+  else list.sort((a, b) => b.n - a.n || b.last.localeCompare(a.last));
+  el.innerHTML = list.slice(0, 6).map(e => { const c = catOf(e.cat);
+    return `<button type="button" data-note="${esc(e.note)}"><span class="dot" style="background:${colorVar(c)}"></span>${esc(e.note)}</button>`; }).join("");
+}
+$("f-note").addEventListener("input", () => {
+  const e = noteIdx.get($("f-note").value.trim().toLowerCase());
+  if (e && !editing && !catTouched && formKind === "dep" && cats.some(c => c.id === e.cat)) { selCat = e.cat; drawFormCats(); }
+  drawSugg();
+});
+$("f-sugg").addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-note]"); if (!b) return;
+  $("f-note").value = b.dataset.note;
+  const e = noteIdx.get(b.dataset.note.toLowerCase());
+  if (e && !editing && cats.some(c => c.id === e.cat)) { selCat = e.cat; drawFormCats(); }
+  drawSugg();
 });
 function defaultDate(kind) {
   const now = new Date();
@@ -1059,6 +1147,7 @@ function openForm(row, kind = "dep") {
   selCat = row ? row[K.fk] : (list.some(c => c.id === last) ? last : list[0]?.id);
   $("delete").classList.toggle("hidden", !row);
   $("form-err").textContent = "";
+  catTouched = false;
   // Répéter (dépenses uniquement)
   $("f-rep-box").classList.toggle("hidden", !dep || recError);
   repOn = false; repMode = "all"; repMonths = new Set([Number($("f-date").value.slice(5, 7))]);
@@ -1066,12 +1155,13 @@ function openForm(row, kind = "dep") {
   const linked = row && row.recurrence_id ? recs.find(x => x.id === row.recurrence_id) : null;
   $("f-rep-toggle-row").classList.toggle("hidden", !!linked);
   $("f-rep-linked").classList.toggle("hidden", !linked);
-  if (linked) $("f-rep-linked-txt").textContent = "🔁 " + recLabel(linked);
+  if (linked) $("f-rep-linked-txt").innerHTML = I.repeat + " " + esc(recLabel(linked));
   $("f-rep-manage").onclick = () => linked && openRec(linked);
   drawRep();
   drawFormCats();
   openSheet("sheet-exp");
-  if (!row) setTimeout(() => $("f-montant").focus(), 50);
+  if (!row) $("f-montant").focus();   // synchrone : iOS ouvre directement le clavier numérique
+  drawSugg();
 }
 function drawRep() {
   $("f-rep-opts").classList.toggle("hidden", !repOn);
@@ -1086,10 +1176,49 @@ $("f-rep-mode").addEventListener("click", (e) => { const b = e.target.closest("[
 $("f-rep-months").addEventListener("click", (e) => { const b = e.target.closest("[data-mi]"); if (!b) return; const i = Number(b.dataset.mi); repMonths.has(i) ? repMonths.delete(i) : repMonths.add(i); drawRep(); });
 $("f-date").addEventListener("change", () => { if (repOn) drawRep(); });
 
+let pressT = 0, pressTimer = null;
+const LONG_MS = 450;
+$("add").addEventListener("pointerdown", () => {
+  pressT = Date.now(); clearTimeout(pressTimer);
+  pressTimer = setTimeout(() => { if (current !== "bilan") $("add").classList.add("held"); }, LONG_MS);
+});
+const endPress = () => { clearTimeout(pressTimer); $("add").classList.remove("held"); };
+$("add").addEventListener("pointerleave", endPress);
+$("add").addEventListener("pointercancel", endPress);
+$("add").addEventListener("contextmenu", (e) => e.preventDefault());
 $("add").onclick = () => {
+  const long = pressT && Date.now() - pressT >= LONG_MS; pressT = 0; endPress();
   if (current === "bilan" && revError) { toast("Lance d'abord migration-v3.sql"); return; }
-  openForm(null, current === "bilan" ? "rev" : "dep");
+  if (current === "bilan") return openForm(null, "rev");
+  long ? openQuick() : openForm(null, "dep");
 };
+// Saisie rapide : montant seul, dernière catégorie utilisée, date du jour
+function quickCat() { const last = localStorage.getItem("last-dep"); return cats.find(c => c.id === last) || cats[0]; }
+function openQuick() {
+  const c = quickCat(); if (!c) return openForm(null, "dep");
+  $("q-cat").innerHTML = `Dans ${chip(c)} · aujourd'hui`;
+  $("q-montant").value = ""; $("q-err").textContent = "";
+  openSheet("sheet-quick");
+  $("q-montant").focus();
+}
+$("q-more").onclick = () => {
+  const v = $("q-montant").value; closeSheet("sheet-quick");
+  openForm(null, "dep"); $("f-montant").value = v;
+};
+$("quick-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const montant = Number($("q-montant").value.replace(/\s/g, "").replace(",", ".").replace("€", ""));
+  if (!(montant > 0)) { $("q-err").textContent = "Montant invalide."; return; }
+  const c = quickCat();
+  $("q-save").disabled = true;
+  const { error } = await db.from("depenses").insert({ montant: Math.round(montant * 100) / 100, categorie_id: c.id, date: todayISO(), note: null });
+  $("q-save").disabled = false;
+  if (error) { $("q-err").textContent = "Échec de l'enregistrement (connexion internet ?)."; return; }
+  closeSheet("sheet-quick"); toast(`${eur.format(montant)} ajouté dans ${c.nom}`);
+  openMonths.add(new Date().getMonth());
+  if (year !== new Date().getFullYear() && current !== "prev") year = new Date().getFullYear();
+  load(true);
+});
 
 $("form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -1117,14 +1246,16 @@ $("form").addEventListener("submit", async (e) => {
     $("form-err").textContent = "Échec de l'enregistrement (connexion internet ?)."; return;
   }
   try { localStorage.setItem("last-" + formKind, selCat); } catch {}
+  if (formKind === "dep" && rec.note) addNote(rec.note, rec.categorie_id, rec.date, false);
   const wasEdit = !!editing;
   const y = Number(rec.date.slice(0, 4)), m = Number(rec.date.slice(5, 7)) - 1;
   openMonths.add(m);
   closeSheet("sheet-exp"); editing = null;
-  toast(newRec ? "Dépense récurrente créée 🔁" : formKind === "dep" ? (wasEdit ? "Dépense modifiée" : "Dépense ajoutée") : (wasEdit ? "Revenu modifié" : "Revenu ajouté"));
+  toast(newRec ? "Dépense récurrente créée" : formKind === "dep" ? (wasEdit ? "Dépense modifiée" : "Dépense ajoutée") : (wasEdit ? "Revenu modifié" : "Revenu ajouté"));
   if (current === "bilan") bMonth = m;
-  if (y !== year && current !== "prev") year = y;
+  if (y !== year && current !== "prev" && $("sheet-search").classList.contains("hidden")) year = y;
   load(true);
+  if (!$("sheet-search").classList.contains("hidden")) doSearch();
 });
 $("delete").addEventListener("click", async () => {
   const K = KINDS[formKind];
@@ -1133,19 +1264,20 @@ $("delete").addEventListener("click", async () => {
   if (error) { $("form-err").textContent = "Échec de la suppression."; return; }
   closeSheet("sheet-exp"); editing = null;
   toast(formKind === "dep" ? "Dépense supprimée" : "Revenu supprimé"); load(true);
+  if (!$("sheet-search").classList.contains("hidden")) doSearch();
 });
 
 // ---------- Réglages : catégories et sources ----------
 function listHTML(list, kind) {
   return list.map(c => `<button class="item" data-cat="${c.id}" data-kind="${kind}"><span class="dot" style="background:${colorVar(c)}"></span>
-    <span class="main"><div class="t">${esc(c.nom)}</div></span><span class="chev">›</span></button>`).join("");
+    <span class="main"><div class="t">${esc(c.nom)}</div></span><span class="chev">${I.chevR}</span></button>`).join("");
 }
 function renderSettings() {
   $("set-cats").innerHTML = listHTML(cats, "dep");
   $("set-rec-block").classList.toggle("hidden", recError);
   $("set-recs").innerHTML = recs.length ? recs.map(r => { const c = catOf(r.categorie_id);
     return `<button class="item" data-rec="${r.id}"><span class="dot" style="background:${colorVar(c)}"></span>
-      <span class="main"><div class="t">${esc(r.note) || esc(c.nom)} · ${eur.format(r.montant)}</div><div class="d">${recLabel(r)}</div></span><span class="chev">›</span></button>`; }).join("")
+      <span class="main"><div class="t">${esc(r.note) || esc(c.nom)} · ${eur.format(r.montant)}</div><div class="d">${recLabel(r)}</div></span><span class="chev">${I.chevR}</span></button>`; }).join("")
     : `<div class="item" style="color:var(--muted)">Aucune pour l'instant</div>`;
   $("set-rev-block").classList.toggle("hidden", revError);
   $("set-sources").innerHTML = listHTML(sources, "rev");
@@ -1302,9 +1434,35 @@ async function deleteCat() {
   render(); load(true);
 }
 
+// ---------- Recherche (toutes années) ----------
+let searchTok = 0, searchTimer = null, searchRows = [];
+$("open-search").onclick = () => { openSheet("sheet-search"); $("s-q").focus(); doSearch(); };
+$("s-q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(doSearch, 250); });
+async function doSearch() {
+  const q = $("s-q").value.trim(), tok = ++searchTok;
+  if (q.length < 2) { $("s-tot").textContent = "Tape au moins 2 lettres."; $("s-res").innerHTML = ""; searchRows = []; return; }
+  const safe = q.replace(/[%,()*\\]/g, " ").trim();
+  const ids = cats.filter(c => c.nom.toLowerCase().includes(q.toLowerCase())).map(c => c.id);
+  let query = db.from("depenses").select("id,date,montant,categorie_id,note" + (recError ? "" : ",recurrence_id"));
+  query = ids.length ? query.or(`note.ilike.%${safe}%,categorie_id.in.(${ids.join(",")})`) : query.ilike("note", `%${safe}%`);
+  const { data, error } = await query.order("date", { ascending: false }).limit(200);
+  if (tok !== searchTok) return;
+  if (error) { $("s-tot").textContent = "Recherche impossible (connexion internet ?)."; return; }
+  searchRows = data.map(r => ({ ...r, montant: Number(r.montant) }));
+  $("s-tot").innerHTML = searchRows.length
+    ? `<span>${searchRows.length}${searchRows.length === 200 ? "+" : ""} dépense${searchRows.length > 1 ? "s" : ""}</span><b>${eur.format(sum(searchRows.map(r => r.montant)))}</b>`
+    : "<span>Aucun résultat.</span>";
+  $("s-res").innerHTML = searchRows.map(r => itemHTML(r, "dep", true)).join("");
+  $("s-res").classList.toggle("hidden", !searchRows.length);
+}
+$("s-res").addEventListener("click", (e) => {
+  const it = e.target.closest(".item[data-id]"); if (!it) return;
+  openForm(searchRows.find(r => r.id === it.dataset.id), "dep");
+});
+
 // ---------- Export CSV (ouvrable dans Excel) ----------
 $("export").addEventListener("click", async () => {
-  const btn = $("export"); btn.disabled = true; btn.textContent = "Préparation…";
+  const btn = $("export"); btn.disabled = true; btn.querySelector("span").textContent = "Préparation…";
   try {
     const [c, d, s, r] = await Promise.all([
       db.from("categories").select("id,nom"),
@@ -1329,7 +1487,7 @@ $("export").addEventListener("click", async () => {
       document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     }
   } catch { toast("Échec de l'export (connexion internet ?)"); }
-  btn.disabled = false; btn.textContent = "⬇︎ Exporter toutes les données (CSV)";
+  btn.disabled = false; btn.querySelector("span").textContent = "Exporter toutes les données (CSV)";
 });
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
