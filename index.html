@@ -49,8 +49,14 @@
   .year button { width: 36px; height: 36px; border-radius: 18px; font-size: 20px; color: var(--accent); }
   .year span { font-weight: 600; min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; }
   .year.off { display: none; }
-  .mfilter { padding: 0 16px 10px; }
-  .mfilter select { font-size: 16px; font-weight: 600; padding: 10px 12px; background: var(--surface); color: var(--accent); }
+  .mfilter { padding: 0 16px 8px; }
+  .mfilter select { width: auto; font-size: 14px; font-weight: 600; padding: 6px 12px; border-radius: 16px; background: var(--surface); color: var(--accent); }
+  button.chip { padding: 2px 0; font: inherit; font-size: inherit; color: inherit; text-align: left; }
+  .chip.fc { cursor: pointer; }
+  .chip.dim { opacity: .4; }
+  .chip.on { font-weight: 700; color: var(--text); }
+  .fpill { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #fff; border-radius: 16px; padding: 6px 12px; font-size: 14px; font-weight: 600; }
+  .fbar { text-align: center; margin: 0 16px 12px; }
   .gear.spin { animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -328,6 +334,15 @@
   </form>
 </div>
 
+<!-- Liste des dépenses d'une catégorie (depuis Graphique / Proportions) -->
+<div class="sheet-bg hidden" id="sheet-cl">
+  <div class="sheet">
+    <h2><span id="cl-title"></span><button type="button" data-close="sheet-cl">Fermer</button></h2>
+    <div class="sub" id="cl-sub" style="margin:-6px 0 12px"></div>
+    <div class="list" id="cl-items"></div>
+  </div>
+</div>
+
 <div class="toast hidden" id="toast"></div>
 
 <script>
@@ -367,6 +382,7 @@ function monthGrid(el, set) {
   el.innerHTML = MS.map((m, i) => `<button type="button" data-mi="${i + 1}" class="${set.has(i + 1) ? "on" : ""}">${m}</button>`).join("");
 }
 let fMonth = null;                    // filtre : null = toute l'année, sinon 0..11
+let fCat = null;                      // filtre catégorie de l'Historique (liste uniquement)
 let bMonth = new Date().getMonth();   // mois affiché dans le Bilan
 let atDate = null;                    // date choisie dans « Où en étions-nous le… »
 let editing = null, formKind = "dep", selCat = null;
@@ -555,6 +571,7 @@ function catsInData() {
   return [...cats, ...extra];
 }
 const chip = (c, txt) => `<span class="chip"><span class="dot" style="background:${colorVar(c)}"></span>${esc(c.nom)}${txt ? " " + txt : ""}</span>`;
+const chipBtn = (c, txt) => `<button type="button" class="chip fc ${fCat === c.id ? "on" : ""} ${fCat && fCat !== c.id && current === "list" ? "dim" : ""}" data-fcat="${c.id}"><span class="dot" style="background:${colorVar(c)}"></span>${esc(c.nom)}${txt ? " " + txt : ""}</button>`;
 const segBar = (parts) => `<div class="bar">${parts.map(([c, v]) => `<i style="flex:${v};background:${colorVar(c)}"></i>`).join("")}</div>`;
 
 // ---------- Affichage ----------
@@ -578,8 +595,8 @@ function render() {
 
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 function renderFilter() {
-  $("mfilter").innerHTML = `<option value="">Toute l'année ${year}</option>` +
-    MONTHS.map((m, i) => `<option value="${i}">${cap(m)} ${year}</option>`).join("");
+  $("mfilter").innerHTML = `<option value="">Toute l'année</option>` +
+    MONTHS.map((m, i) => `<option value="${i}">${cap(m)}</option>`).join("");
   $("mfilter").value = fMonth == null ? "" : String(fMonth);
 }
 $("mfilter").addEventListener("change", (e) => {
@@ -597,14 +614,21 @@ function itemHTML(r, kind = "dep") {
     <span class="m">${kind === "rev" ? "+" : ""}${eur.format(r.montant)}</span><span class="chev">›</span></button>`;
 }
 
+function filterBar(hint) {
+  if (!fCat) return `<div class="hint">${hint}</div>`;
+  const c = catOf(fCat);
+  return `<div class="fbar"><button type="button" class="fpill" data-fclear="1">${esc(c.nom)} uniquement ✕</button></div>`;
+}
+const keep = (r) => !fCat || r.categorie_id === fCat;
 function renderList(months) {
   const el = $("view-list");
+  if (fCat && !cats.some(c => c.id === fCat)) fCat = null;
   if (fMonth != null) {
     const m = months[fMonth];
     if (!m.items.length) { el.innerHTML = `<div class="empty">Aucune dépense en ${MONTHS[fMonth]} ${year}.<br>Appuie sur + pour en ajouter une.</div>`; return; }
     const w = weeksOf(fMonth), list = catsInData();
     const used = list.filter(c => m.cats[c.id] > 0);
-    el.innerHTML = `
+    el.innerHTML = filterBar("Touche une catégorie pour ne voir que ses dépenses, ou une dépense pour la modifier.") + `
       <div class="card">
         <h2>Par semaine (€)</h2>
         <div class="chart-wrap small"><canvas id="chart-hist" role="img" aria-label="Dépenses par semaine"></canvas></div>
@@ -612,33 +636,39 @@ function renderList(months) {
       <div class="month">
         <div class="month-head"><span class="name">${MONTHS[fMonth]}</span><span class="sum">${eur.format(m.total)}</span></div>
         ${segBar(used.map(c => [c, m.cats[c.id]]))}
-        <div class="chips">${used.map(c => chip(c, eur.format(m.cats[c.id]))).join("")}</div>
-        <div class="items">${w.b.map((wk, i) => wk.items.length ? `
-          <div class="wk"><span>Semaine ${i + 1} · ${w.ranges[i][0]}–${w.ranges[i][1]} ${MONTHS_SHORT[fMonth]}</span><b>${eur.format(wk.total)}</b></div>
-          ${wk.items.map(r => itemHTML(r)).join("")}` : "").join("")}
+        <div class="chips">${used.map(c => chipBtn(c, eur.format(m.cats[c.id]))).join("")}</div>
+        <div class="items">${w.b.map((wk, i) => { const its = wk.items.filter(keep); return its.length ? `
+          <div class="wk"><span>Semaine ${i + 1} · ${w.ranges[i][0]}–${w.ranges[i][1]} ${MONTHS_SHORT[fMonth]}</span><b>${eur.format(sum(its.map(r => r.montant)))}</b></div>
+          ${its.map(r => itemHTML(r)).join("")}` : ""; }).join("") || `<div class="chips" style="padding-top:12px">Aucune dépense dans cette catégorie ce mois-ci.</div>`}
         </div>
       </div>
-      <div class="hint">Touche une dépense pour la modifier ou la supprimer.</div>`;
+`;
     stackChart("chart-hist", list, w.b, w.labels, w.long, false);
     return;
   }
   const filled = months.map((m, i) => ({ ...m, i })).filter(m => m.items.length).reverse();
   if (!filled.length) { el.innerHTML = `<div class="empty">Aucune dépense en ${year}.<br>Appuie sur + pour en ajouter une.</div>`; return; }
-  el.innerHTML = `<div class="hint">Touche un mois pour voir le détail, puis une dépense pour la modifier ou la supprimer.</div>` +
-  filled.map(m => {
-    const open = openMonths.has(m.i);
+  const shown = fCat ? filled.filter(m => m.items.some(keep)) : filled;
+  el.innerHTML = filterBar("Touche un mois pour voir le détail, une catégorie pour ne voir que ses dépenses.") +
+  (shown.length ? "" : `<div class="empty">Aucune dépense dans cette catégorie en ${year}.</div>`) +
+  shown.map(m => {
+    const open = fCat ? true : openMonths.has(m.i);
     const used = catsInData().filter(c => m.cats[c.id] > 0);
+    const its = m.items.filter(keep);
     return `<div class="month">
       <button class="month-head" data-m="${m.i}">
         <span class="name">${MONTHS[m.i]} ${open ? "▾" : "▸"}</span><span class="sum">${eur.format(m.total)}</span>
       </button>
       ${segBar(used.map(c => [c, m.cats[c.id]]))}
-      <div class="chips">${used.map(c => chip(c, eur.format(m.cats[c.id]))).join("")}</div>
-      ${open ? `<div class="items">${m.items.map(r => itemHTML(r)).join("")}</div>` : ""}
+      <div class="chips">${used.map(c => chipBtn(c, eur.format(m.cats[c.id]))).join("")}</div>
+      ${open ? `<div class="items">${its.map(r => itemHTML(r)).join("")}</div>` : ""}
     </div>`;
   }).join("");
 }
 function onItemClick(e) {
+  const fc = e.target.closest("[data-fcat]");
+  if (fc && current === "list") { fCat = fCat === fc.dataset.fcat ? null : fc.dataset.fcat; render(); return true; }
+  if (e.target.closest("[data-fclear]")) { fCat = null; render(); return true; }
   const head = e.target.closest(".month-head[data-m]");
   if (head) { const i = Number(head.dataset.m); openMonths.has(i) ? openMonths.delete(i) : openMonths.add(i); render(); return true; }
   const item = e.target.closest(".item[data-id]");
@@ -684,6 +714,7 @@ function stackChart(id, list, b, labels, long, percent) {
       responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
       interaction: { mode: "index", intersect: false },
       plugins: { legend: { display: false }, tooltip: {
+        enabled: !percent,
         filter: (it) => it.raw > 0,
         callbacks: {
           title: (it) => long(it[0].dataIndex),
@@ -705,16 +736,31 @@ function renderChart() {
   $("view-chart").innerHTML = `
     <div class="card">
       <h2>Dépenses par ${P.per} (€)${fMonth != null ? " · " + MONTHS[fMonth] : ""}</h2>
-      <div class="legend">${list.map(c => chip(c)).join("")}</div>
+      <div class="legend">${list.map(c => chipBtn(c)).join("")}</div>
       <div class="chart-wrap"><canvas id="chart-main" role="img" aria-label="Histogramme des dépenses par ${P.per} et par catégorie"></canvas></div>
     </div>
     <div class="card">
       <h2>Total par catégorie · ${when}</h2>
-      <table>${list.map((c, i) => `<tr><td>${chip(c)}</td><td><b>${eur.format(totals[i])}</b>${all ? ` <span class="pct">(${fmtPct(totals[i] / all * 100)})</span>` : ""}</td></tr>`).join("")}
+      <table>${list.map((c, i) => `<tr><td>${chipBtn(c)}</td><td><b>${eur.format(totals[i])}</b>${all ? ` <span class="pct">(${fmtPct(totals[i] / all * 100)})</span>` : ""}</td></tr>`).join("")}
       <tr><td><b>Total</b></td><td><b>${eur.format(all)}</b></td></tr></table>
     </div>`;
   stackChart("chart-main", list, P.b, P.labels, P.long, false);
 }
+
+// Feuille : dépenses d'une catégorie sur la période affichée
+function openCatList(id) {
+  const c = catOf(id);
+  const its = rows.filter(r => r.categorie_id === id && (fMonth == null || mOf(r) === fMonth));
+  $("cl-title").innerHTML = `<span class="chip"><span class="dot" style="background:${colorVar(c)}"></span>${esc(c.nom)}</span>`;
+  $("cl-sub").textContent = `${fMonth == null ? "Année " + year : cap(MONTHS[fMonth]) + " " + year} · ${its.length} dépense${its.length > 1 ? "s" : ""} · ${eur.format(sum(its.map(r => r.montant)))}`;
+  $("cl-items").innerHTML = its.length ? its.map(r => itemHTML(r)).join("") : `<div class="item" style="color:var(--muted)">Aucune dépense</div>`;
+  openSheet("sheet-cl");
+}
+for (const v of ["view-chart", "view-prop"]) $(v).addEventListener("click", (e) => { const b = e.target.closest("[data-fcat]"); if (b) openCatList(b.dataset.fcat); });
+$("cl-items").addEventListener("click", (e) => {
+  const it = e.target.closest(".item[data-id]"); if (!it) return;
+  closeSheet("sheet-cl"); openForm(rows.find(r => r.id === it.dataset.id), "dep");
+});
 
 // ---------- Proportions ----------
 function renderProp() {
@@ -731,12 +777,12 @@ function renderProp() {
       <h2>Répartition sur ${when}</h2>
       ${segBar(sorted.map(x => [x.c, x.v]))}
       <table><tr><th>Catégorie</th><th>Part</th><th>Montant</th></tr>
-      ${sorted.map(x => `<tr><td>${chip(x.c)}</td><td><b>${fmtPct(x.v / all * 100)}</b></td><td>${eur.format(x.v)}</td></tr>`).join("")}
+      ${sorted.map(x => `<tr><td>${chipBtn(x.c)}</td><td><b>${fmtPct(x.v / all * 100)}</b></td><td>${eur.format(x.v)}</td></tr>`).join("")}
       </table>
     </div>
     <div class="card">
       <h2>Part de chaque catégorie par ${P.per} (%)</h2>
-      <div class="legend">${list.map(c => chip(c)).join("")}</div>
+      <div class="legend">${list.map(c => chipBtn(c)).join("")}</div>
       <div class="chart-wrap"><canvas id="chart-prop" role="img" aria-label="Proportion des catégories par ${P.per}"></canvas></div>
     </div>
     ${rowsP.map(p => {
@@ -744,7 +790,7 @@ function renderProp() {
       return `<div class="month">
         <div class="month-head"><span class="name">${P.name(p.i)}</span><span class="sum">${eur.format(p.total)}</span></div>
         ${segBar(used.map(c => [c, p.cats[c.id]]))}
-        <div class="chips">${used.map(c => chip(c, "<b>" + fmtPct(p.cats[c.id] / p.total * 100) + "</b>")).join("")}</div>
+        <div class="chips">${used.map(c => chipBtn(c, "<b>" + fmtPct(p.cats[c.id] / p.total * 100) + "</b>")).join("")}</div>
       </div>`;
     }).join("")}`;
   stackChart("chart-prop", list, P.b, P.labels, P.long, true);

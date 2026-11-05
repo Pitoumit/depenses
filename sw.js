@@ -1,5 +1,5 @@
 // Met en cache l'interface pour un démarrage rapide. Les données viennent toujours de Supabase.
-const CACHE = "depenses-v5";
+const CACHE = "depenses-v6";
 const SHELL = ["./", "index.html", "config.js", "manifest.webmanifest", "apple-touch-icon.png", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", (e) => {
