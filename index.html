@@ -122,7 +122,23 @@
   .fab.rev { background: var(--good); }
 
   .sheet-bg { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; }
-  #sheet-cat { z-index: 25; }
+  #sheet-cat, #sheet-rec { z-index: 25; }
+  .rep { margin-top: 14px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
+  .rep-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 15px; }
+  .rep-row button { color: var(--accent); flex: none; }
+  .switch { appearance: none; -webkit-appearance: none; width: 51px; height: 31px; border-radius: 16px; background: var(--track);
+    position: relative; flex: none; padding: 0; border: 0; margin: 0; transition: background .2s; cursor: pointer; }
+  .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s; }
+  .switch:checked { background: var(--good); }
+  .switch:checked::after { transform: translateX(20px); }
+  .seg { display: flex; background: var(--bg); border-radius: 9px; padding: 2px; margin-top: 12px; }
+  .seg button { flex: 1; padding: 8px; border-radius: 7px; font-size: 14px; color: var(--text-2); }
+  .seg button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .mgrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 10px; }
+  .mgrid button { padding: 8px 0; border-radius: 8px; border: 1.5px solid var(--border); font-size: 13px; }
+  .mgrid button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .rep .sync { margin-top: 8px; }
   .sheet { width: 100%; background: var(--surface); border-radius: 18px 18px 0 0;
     padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 92vh; overflow: auto; }
   .sheet h2 { margin: 0 0 14px; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
@@ -233,6 +249,15 @@
     <input id="f-date" type="date" required>
     <label for="f-note">Note (facultatif)</label>
     <input id="f-note" type="text" maxlength="120">
+    <div class="rep" id="f-rep-box">
+      <div class="rep-row" id="f-rep-toggle-row"><span>🔁 Répéter cette dépense</span><input type="checkbox" class="switch" id="f-rep" aria-label="Répéter cette dépense"></div>
+      <div id="f-rep-opts" class="hidden">
+        <div class="seg" id="f-rep-mode"><button type="button" data-mode="all">Tous les mois</button><button type="button" data-mode="some">Certains mois</button></div>
+        <div class="mgrid hidden" id="f-rep-months"></div>
+        <div class="sync" id="f-rep-info"></div>
+      </div>
+      <div class="rep-row hidden" id="f-rep-linked"><span id="f-rep-linked-txt"></span><button type="button" id="f-rep-manage">Gérer</button></div>
+    </div>
     <button class="primary" id="save" type="submit">Enregistrer</button>
     <button class="del hidden" id="delete" type="button">Supprimer</button>
     <div class="err" id="form-err"></div>
@@ -246,6 +271,11 @@
     <div class="section-title">Catégories de dépenses</div>
     <div class="list" id="set-cats"></div>
     <button class="secondary" id="set-add-cat" type="button">+ Ajouter une catégorie</button>
+    <div id="set-rec-block">
+      <div class="section-title">Dépenses récurrentes</div>
+      <div class="list" id="set-recs"></div>
+      <div class="sync" style="margin-top:6px">Pour en créer une, active « Répéter » en ajoutant une dépense.</div>
+    </div>
     <div id="set-rev-block">
       <div class="section-title">Sources de revenus</div>
       <div class="list" id="set-sources"></div>
@@ -277,6 +307,27 @@
   </form>
 </div>
 
+<!-- Dépense récurrente : modification / arrêt -->
+<div class="sheet-bg hidden" id="sheet-rec">
+  <form class="sheet" id="rec-form">
+    <h2><span>Dépense récurrente</span><button type="button" data-close="sheet-rec">Annuler</button></h2>
+    <label for="r-montant">Montant (€)</label>
+    <input id="r-montant" class="amount" type="text" inputmode="decimal" autocomplete="off" required>
+    <label>Catégorie</label>
+    <div class="cats" id="r-cats"></div>
+    <label for="r-note">Note</label>
+    <input id="r-note" type="text" maxlength="120">
+    <label for="r-jour">Jour du mois</label>
+    <input id="r-jour" type="number" min="1" max="31" inputmode="numeric" required>
+    <div class="seg" id="r-mode"><button type="button" data-mode="all">Tous les mois</button><button type="button" data-mode="some">Certains mois</button></div>
+    <div class="mgrid hidden" id="r-months"></div>
+    <div class="sync" style="margin-top:10px">Les changements s'appliquent aux prochains mois. Les dépenses déjà créées ne changent pas.</div>
+    <button class="primary" type="submit" id="r-save">Enregistrer</button>
+    <button class="del" type="button" id="r-stop">Arrêter cette récurrence</button>
+    <div class="err" id="rec-err"></div>
+  </form>
+</div>
+
 <div class="toast hidden" id="toast"></div>
 
 <script>
@@ -303,6 +354,18 @@ function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;
 
 let db, year = new Date().getFullYear(), current = "list";
 let rows = [], cats = [], revRows = [], sources = [], revError = false;
+let recs = [], recError = false, generating = false;
+let repOn = false, repMode = "all", repMonths = new Set();
+let editingRec = null, rMode = "all", rMonths = new Set(), rCat = null;
+const MS = MONTHS_SHORT.map(m => m.replace(".", ""));
+const mk = (y, m) => y * 12 + m;
+function recLabel(r) {
+  const when = r.tous_les_mois ? "Tous les mois" : ((r.mois || []).length ? [...r.mois].sort((a, b) => a - b).map(m => MS[m - 1]).join(", ") : "Aucun mois");
+  return `${when}, le ${r.jour}`;
+}
+function monthGrid(el, set) {
+  el.innerHTML = MS.map((m, i) => `<button type="button" data-mi="${i + 1}" class="${set.has(i + 1) ? "on" : ""}">${m}</button>`).join("");
+}
 let fMonth = null;                    // filtre : null = toute l'année, sinon 0..11
 let bMonth = new Date().getMonth();   // mois affiché dans le Bilan
 let atDate = null;                    // date choisie dans « Où en étions-nous le… »
@@ -355,7 +418,7 @@ function showApp() {
   tab("list");
   load();
   const ch = db.channel("foyer-live");
-  for (const t of ["depenses", "categories", "revenus", "sources_revenu"])
+  for (const t of ["depenses", "categories", "revenus", "sources_revenu", "recurrences"])
     ch.on("postgres_changes", { event: "*", schema: "public", table: t }, () => load(true));
   ch.subscribe();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) load(true); });
@@ -385,17 +448,21 @@ async function fetchAll(build) {
 async function load(silent) {
   const cacheKey = "cache-v3-" + year;
   if (!silent) {
-    try { const c = JSON.parse(localStorage.getItem(cacheKey) || "null"); if (c) { ({ cats, rows, sources, revRows } = c); render(); } } catch {}
+    try { const c = JSON.parse(localStorage.getItem(cacheKey) || "null"); if (c) { ({ cats, rows, sources, revRows } = c); recs = c.recs || []; render(); } } catch {}
   }
   const y0 = `${year}-01-01`, y1 = `${year}-12-31`;
-  const [c, d, s, r] = await Promise.all([
+  const depCols = "id,date,montant,categorie_id,note" + (recError ? "" : ",recurrence_id");
+  const [c, d, s, r, rc] = await Promise.all([
     db.from("categories").select("id,nom,couleur,ordre").order("ordre").order("created_at"),
-    fetchAll(() => db.from("depenses").select("id,date,montant,categorie_id,note").gte("date", y0).lte("date", y1)
+    fetchAll(() => db.from("depenses").select(depCols).gte("date", y0).lte("date", y1)
       .order("date", { ascending: false }).order("created_at", { ascending: false })),
     db.from("sources_revenu").select("id,nom,couleur,ordre").order("ordre").order("created_at"),
     fetchAll(() => db.from("revenus").select("id,date,montant,source_id,note").gte("date", y0).lte("date", y1)
       .order("date", { ascending: false }).order("created_at", { ascending: false })),
+    recError ? { data: [] } : db.from("recurrences").select("id,montant,categorie_id,note,jour,tous_les_mois,mois,debut,created_at").order("created_at"),
   ]);
+  // base pas encore passée en v4 : on continue sans les récurrences
+  if (!recError && (rc.error || (d.error && /recurrence/i.test(d.error.message || "")))) { recError = true; return load(silent); }
   if (c.error || d.error) {
     const msg = (c.error || d.error).message || "";
     $("sync").textContent = /categor/i.test(msg) ? "Base à mettre à jour : lance migration-v2.sql dans Supabase" : "Hors connexion : affichage de la dernière version";
@@ -416,9 +483,42 @@ async function load(silent) {
   rows = d.data.map(x => ({ ...x, montant: Number(x.montant) }));
   sources = revError ? [] : s.data;
   revRows = revError ? [] : r.data.map(x => ({ ...x, montant: Number(x.montant) }));
-  try { localStorage.setItem(cacheKey, JSON.stringify({ cats, rows, sources, revRows })); } catch {}
+  recs = recError ? [] : rc.data.map(x => ({ ...x, montant: Number(x.montant), mois: x.mois || [] }));
+  const created = await generateRecurring();
+  if (created) { toast(`${created} dépense${created > 1 ? "s" : ""} récurrente${created > 1 ? "s" : ""} ajoutée${created > 1 ? "s" : ""}`); return load(true); }
+  try { localStorage.setItem(cacheKey, JSON.stringify({ cats, rows, sources, revRows, recs })); } catch {}
   $("sync").textContent = "Synchronisé à " + new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   render();
+}
+
+// Crée les dépenses récurrentes des mois arrivés (jamais à l'avance, jamais avant la création de la règle)
+async function generateRecurring() {
+  if (recError || generating || !recs.length) return 0;
+  generating = true;
+  try {
+    const now = new Date(), cur = mk(now.getFullYear(), now.getMonth());
+    const plan = recs.map(r => {
+      const d = new Date(r.debut + "T12:00:00"), c = new Date(r.created_at);
+      return { r, start: Math.max(mk(d.getFullYear(), d.getMonth()) + 1, mk(c.getFullYear(), c.getMonth()), cur - 24) };
+    });
+    const minStart = Math.min(...plan.map(p => p.start));
+    if (minStart > cur) return 0;
+    const from = `${Math.floor(minStart / 12)}-${pad(minStart % 12 + 1)}-01`;
+    const occ = await fetchAll(() => db.from("depenses").select("recurrence_id,date").not("recurrence_id", "is", null).gte("date", from));
+    if (occ.error) return 0;
+    const have = new Set(occ.data.map(o => o.recurrence_id + ":" + mk(Number(o.date.slice(0, 4)), Number(o.date.slice(5, 7)) - 1)));
+    const todo = [];
+    for (const { r, start } of plan) for (let k = start; k <= cur; k++) {
+      const y = Math.floor(k / 12), m = k % 12;
+      if (!r.tous_les_mois && !r.mois.includes(m + 1)) continue;
+      if (have.has(r.id + ":" + k)) continue;
+      todo.push({ montant: r.montant, categorie_id: r.categorie_id, note: r.note, recurrence_id: r.id,
+        date: `${y}-${pad(m + 1)}-${pad(Math.min(r.jour, daysIn(y, m)))}` });
+    }
+    let n = 0;
+    for (const x of todo) { const { error } = await db.from("depenses").insert(x); if (!error) n++; } // doublon (autre téléphone) = ignoré
+    return n;
+  } finally { generating = false; }
 }
 
 // Regroupe des lignes en n « périodes » (mois ou semaines)
@@ -493,7 +593,7 @@ function itemHTML(r, kind = "dep") {
   const d = new Date(r.date + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
   return `<button class="item" data-id="${r.id}" data-kind="${kind}">
     <span class="dot" style="background:${colorVar(c)}"></span>
-    <span class="main"><div class="t">${esc(r.note) || esc(c.nom)}</div><div class="d">${d} · ${esc(c.nom)}</div></span>
+    <span class="main"><div class="t">${esc(r.note) || esc(c.nom)}</div><div class="d">${r.recurrence_id ? "🔁 " : ""}${d} · ${esc(c.nom)}</div></span>
     <span class="m">${kind === "rev" ? "+" : ""}${eur.format(r.montant)}</span><span class="chev">›</span></button>`;
 }
 
@@ -899,10 +999,33 @@ function openForm(row, kind = "dep") {
   selCat = row ? row[K.fk] : (list.some(c => c.id === last) ? last : list[0]?.id);
   $("delete").classList.toggle("hidden", !row);
   $("form-err").textContent = "";
+  // Répéter (dépenses uniquement)
+  $("f-rep-box").classList.toggle("hidden", !dep || recError);
+  repOn = false; repMode = "all"; repMonths = new Set([Number($("f-date").value.slice(5, 7))]);
+  $("f-rep").checked = false;
+  const linked = row && row.recurrence_id ? recs.find(x => x.id === row.recurrence_id) : null;
+  $("f-rep-toggle-row").classList.toggle("hidden", !!linked);
+  $("f-rep-linked").classList.toggle("hidden", !linked);
+  if (linked) $("f-rep-linked-txt").textContent = "🔁 " + recLabel(linked);
+  $("f-rep-manage").onclick = () => linked && openRec(linked);
+  drawRep();
   drawFormCats();
   openSheet("sheet-exp");
   if (!row) setTimeout(() => $("f-montant").focus(), 50);
 }
+function drawRep() {
+  $("f-rep-opts").classList.toggle("hidden", !repOn);
+  $("f-rep-mode").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.mode === repMode));
+  $("f-rep-months").classList.toggle("hidden", repMode !== "some");
+  monthGrid($("f-rep-months"), repMonths);
+  const day = Number(($("f-date").value || todayISO()).slice(8, 10));
+  $("f-rep-info").textContent = `Elle sera ajoutée automatiquement ${repMode === "all" ? "chaque mois" : "les mois choisis"}, le ${day}, à partir du mois suivant.`;
+}
+$("f-rep").addEventListener("change", (e) => { repOn = e.target.checked; drawRep(); });
+$("f-rep-mode").addEventListener("click", (e) => { const b = e.target.closest("[data-mode]"); if (b) { repMode = b.dataset.mode; drawRep(); } });
+$("f-rep-months").addEventListener("click", (e) => { const b = e.target.closest("[data-mi]"); if (!b) return; const i = Number(b.dataset.mi); repMonths.has(i) ? repMonths.delete(i) : repMonths.add(i); drawRep(); });
+$("f-date").addEventListener("change", () => { if (repOn) drawRep(); });
+
 $("add").onclick = () => {
   if (current === "bilan" && revError) { toast("Lance d'abord migration-v3.sql"); return; }
   openForm(null, current === "bilan" ? "rev" : "dep");
@@ -916,16 +1039,29 @@ $("form").addEventListener("submit", async (e) => {
   if (!selCat) { $("form-err").textContent = formKind === "dep" ? "Choisis une catégorie." : "Choisis une source."; return; }
   if (!$("f-date").value) { $("form-err").textContent = "Choisis une date."; return; }
   const rec = { montant: Math.round(montant * 100) / 100, [K.fk]: selCat, date: $("f-date").value, note: $("f-note").value.trim() || null };
+  const withRep = formKind === "dep" && repOn && !recError;
+  if (withRep && repMode === "some" && !repMonths.size) { $("form-err").textContent = "Choisis au moins un mois."; return; }
   $("save").disabled = true;
+  let newRec = null;
+  if (withRep) {
+    const rr = await db.from("recurrences").insert({ montant: rec.montant, categorie_id: rec.categorie_id, note: rec.note,
+      jour: Number(rec.date.slice(8, 10)), tous_les_mois: repMode === "all", mois: repMode === "all" ? [] : [...repMonths].sort((a, b) => a - b),
+      debut: rec.date }).select().single();
+    if (rr.error) { $("save").disabled = false; $("form-err").textContent = "Échec de la création de la récurrence."; return; }
+    newRec = rr.data; rec.recurrence_id = newRec.id;
+  }
   const { error } = editing ? await db.from(K.fkTable).update(rec).eq("id", editing.id) : await db.from(K.fkTable).insert(rec);
   $("save").disabled = false;
-  if (error) { $("form-err").textContent = "Échec de l'enregistrement (connexion internet ?)."; return; }
+  if (error) {
+    if (newRec) await db.from("recurrences").delete().eq("id", newRec.id);
+    $("form-err").textContent = "Échec de l'enregistrement (connexion internet ?)."; return;
+  }
   try { localStorage.setItem("last-" + formKind, selCat); } catch {}
   const wasEdit = !!editing;
   const y = Number(rec.date.slice(0, 4)), m = Number(rec.date.slice(5, 7)) - 1;
   openMonths.add(m);
   closeSheet("sheet-exp"); editing = null;
-  toast(formKind === "dep" ? (wasEdit ? "Dépense modifiée" : "Dépense ajoutée") : (wasEdit ? "Revenu modifié" : "Revenu ajouté"));
+  toast(newRec ? "Dépense récurrente créée 🔁" : formKind === "dep" ? (wasEdit ? "Dépense modifiée" : "Dépense ajoutée") : (wasEdit ? "Revenu modifié" : "Revenu ajouté"));
   if (current === "bilan") bMonth = m;
   if (y !== year && current !== "prev") year = y;
   load(true);
@@ -946,6 +1082,11 @@ function listHTML(list, kind) {
 }
 function renderSettings() {
   $("set-cats").innerHTML = listHTML(cats, "dep");
+  $("set-rec-block").classList.toggle("hidden", recError);
+  $("set-recs").innerHTML = recs.length ? recs.map(r => { const c = catOf(r.categorie_id);
+    return `<button class="item" data-rec="${r.id}"><span class="dot" style="background:${colorVar(c)}"></span>
+      <span class="main"><div class="t">${esc(r.note) || esc(c.nom)} · ${eur.format(r.montant)}</div><div class="d">${recLabel(r)}</div></span><span class="chev">›</span></button>`; }).join("")
+    : `<div class="item" style="color:var(--muted)">Aucune pour l'instant</div>`;
   $("set-rev-block").classList.toggle("hidden", revError);
   $("set-sources").innerHTML = listHTML(sources, "rev");
 }
@@ -962,6 +1103,52 @@ for (const id of ["set-cats", "set-sources"]) $(id).addEventListener("click", (e
   catFromForm = false; openCat(KINDS[b.dataset.kind].list().find(c => c.id === b.dataset.cat), b.dataset.kind);
 });
 $("set-add-cat").onclick = () => { catFromForm = false; openCat(null, "dep"); };
+$("set-recs").addEventListener("click", (e) => { const b = e.target.closest("[data-rec]"); if (b) openRec(recs.find(r => r.id === b.dataset.rec)); });
+
+// ---------- Feuille « Dépense récurrente » ----------
+function drawRec() {
+  $("r-cats").innerHTML = cats.map(c => `<button type="button" data-c="${c.id}" class="${c.id === rCat ? "on" : ""}"><span class="dot" style="background:${colorVar(c)}"></span><span class="n">${esc(c.nom)}</span></button>`).join("");
+  $("r-mode").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.mode === rMode));
+  $("r-months").classList.toggle("hidden", rMode !== "some");
+  monthGrid($("r-months"), rMonths);
+}
+function openRec(r) {
+  if (!r) return;
+  editingRec = r;
+  $("r-montant").value = String(r.montant).replace(".", ",");
+  $("r-note").value = r.note || "";
+  $("r-jour").value = r.jour;
+  rCat = r.categorie_id; rMode = r.tous_les_mois ? "all" : "some"; rMonths = new Set(r.mois || []);
+  $("rec-err").textContent = "";
+  drawRec(); openSheet("sheet-rec");
+}
+$("r-cats").addEventListener("click", (e) => { const b = e.target.closest("[data-c]"); if (b) { rCat = b.dataset.c; drawRec(); } });
+$("r-mode").addEventListener("click", (e) => { const b = e.target.closest("[data-mode]"); if (b) { rMode = b.dataset.mode; drawRec(); } });
+$("r-months").addEventListener("click", (e) => { const b = e.target.closest("[data-mi]"); if (!b) return; const i = Number(b.dataset.mi); rMonths.has(i) ? rMonths.delete(i) : rMonths.add(i); drawRec(); });
+$("rec-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const montant = Number($("r-montant").value.replace(/\s/g, "").replace(",", "."));
+  const jour = Number($("r-jour").value);
+  if (!(montant > 0)) { $("rec-err").textContent = "Montant invalide."; return; }
+  if (!(jour >= 1 && jour <= 31)) { $("rec-err").textContent = "Le jour doit être entre 1 et 31."; return; }
+  if (rMode === "some" && !rMonths.size) { $("rec-err").textContent = "Choisis au moins un mois."; return; }
+  $("r-save").disabled = true;
+  const { error } = await db.from("recurrences").update({ montant: Math.round(montant * 100) / 100, categorie_id: rCat,
+    note: $("r-note").value.trim() || null, jour, tous_les_mois: rMode === "all", mois: rMode === "all" ? [] : [...rMonths].sort((a, b) => a - b) }).eq("id", editingRec.id);
+  $("r-save").disabled = false;
+  if (error) { $("rec-err").textContent = "Échec de l'enregistrement (connexion internet ?)."; return; }
+  closeSheet("sheet-rec"); toast("Récurrence modifiée");
+  await load(true); renderSettings();
+  if (!$("sheet-exp").classList.contains("hidden") && editing) openForm(rows.find(r => r.id === editing.id) || editing, "dep");
+});
+$("r-stop").addEventListener("click", async () => {
+  if (!editingRec || !confirm("Arrêter cette récurrence ? Les dépenses déjà créées sont conservées.")) return;
+  const { error } = await db.from("recurrences").delete().eq("id", editingRec.id);
+  if (error) { $("rec-err").textContent = "Échec (connexion internet ?)."; return; }
+  closeSheet("sheet-rec"); closeSheet("sheet-exp"); editing = null;
+  toast("Récurrence arrêtée");
+  await load(true); renderSettings();
+});
 $("set-add-src").onclick = () => { catFromForm = false; openCat(null, "rev"); };
 
 function drawColors() {
@@ -1012,12 +1199,20 @@ $("c-delete").addEventListener("click", async () => {
   const K = KINDS[catKind];
   const { count, error } = await db.from(K.fkTable).select("id", { count: "exact", head: true }).eq(K.fk, editingCat.id);
   if (error) { $("cat-err").textContent = "Impossible de vérifier (connexion internet ?)."; return; }
-  if (!count) {
+  let rcount = 0;
+  if (catKind === "dep" && !recError) {
+    const q = await db.from("recurrences").select("id", { count: "exact", head: true }).eq("categorie_id", editingCat.id);
+    rcount = q.count || 0;
+  }
+  if (!count && !rcount) {
     if (!confirm(`Supprimer « ${editingCat.nom} » ?`)) return;
     return deleteCat();
   }
-  $("c-move-text").innerHTML = `<b>${count} ${K.items}${count > 1 ? "s" : ""}</b> (toutes années confondues) utilise${count > 1 ? "nt" : ""} « ${esc(editingCat.nom)} ».`;
-  $("c-target-label").textContent = `Déplacer ce${count > 1 ? "s" : (catKind === "dep" ? "tte" : "")} ${K.items}${count > 1 ? "s" : ""} vers :`;
+  const parts = [];
+  if (count) parts.push(`<b>${count} ${K.items}${count > 1 ? "s" : ""}</b> (toutes années confondues)`);
+  if (rcount) parts.push(`<b>${rcount} dépense${rcount > 1 ? "s" : ""} récurrente${rcount > 1 ? "s" : ""}</b>`);
+  $("c-move-text").innerHTML = `${parts.join(" et ")} utilise${count + rcount > 1 ? "nt" : ""} « ${esc(editingCat.nom)} ».`;
+  $("c-target-label").textContent = "Les déplacer vers :";
   $("c-target").innerHTML = K.list().filter(c => c.id !== editingCat.id).map(c => `<option value="${c.id}">${esc(c.nom)}</option>`).join("");
   $("c-move").classList.remove("hidden");
 });
@@ -1026,6 +1221,10 @@ $("c-move-go").addEventListener("click", async () => {
   if (!editingCat || !target) return;
   const { error } = await db.from(K.fkTable).update({ [K.fk]: target }).eq(K.fk, editingCat.id);
   if (error) { $("cat-err").textContent = "Échec du déplacement."; return; }
+  if (catKind === "dep" && !recError) {
+    const r2 = await db.from("recurrences").update({ categorie_id: target }).eq("categorie_id", editingCat.id);
+    if (r2.error) { $("cat-err").textContent = "Échec du déplacement des récurrences."; return; }
+  }
   deleteCat();
 });
 async function deleteCat() {
