@@ -23,6 +23,8 @@
     --accent: #2a78d6; --danger: #c63b3a; --good: #1a7f37; --grid: #ebe9e4; --track: #ebe9e4;
     --s0: #2a78d6; --s1: #eb6834; --s2: #1baf7a; --s3: #eda100;
     --s4: #e87ba4; --s5: #008300; --s6: #6250d6; --s7: #e34948;
+    --s8: #0e9aa7; --s9: #8c5a2b; --s10: #1f3f8f; --s11: #7fb800;
+    --s12: #b0249f; --s13: #5f6b7a; --s14: #8a8a00; --s15: #ff8a65;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -32,6 +34,8 @@
       --accent: #3987e5; --danger: #e66767; --good: #3fb950; --grid: #2c2c29; --track: #2c2c29;
       --s0: #3987e5; --s1: #d95926; --s2: #199e70; --s3: #c98500;
       --s4: #d55181; --s5: #008300; --s6: #9085e9; --s7: #e66767;
+      --s8: #22b5c2; --s9: #b07a45; --s10: #5f7fd6; --s11: #8fcf1a;
+      --s12: #d057c3; --s13: #8a96a6; --s14: #b0b02a; --s15: #ff9e7f;
     }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -159,8 +163,8 @@
   .cats button span.n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cats button.on { border-color: var(--text); font-weight: 600; }
   .cats button.add { color: var(--accent); border-style: dashed; }
-  .swatches { display: flex; flex-wrap: wrap; gap: 12px; }
-  .swatches button { width: 38px; height: 38px; border-radius: 19px; box-shadow: 0 0 0 2px var(--surface); }
+  .swatches { display: grid; grid-template-columns: repeat(8, 34px); gap: 10px 8px; justify-content: space-between; }
+  .swatches button { width: 34px; height: 34px; border-radius: 17px; box-shadow: 0 0 0 2px var(--surface); }
   .swatches button.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
   .list { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
   .list .item { padding: 13px 14px; }
@@ -349,7 +353,7 @@
 const MONTHS = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
 const MONTHS_SHORT = ["janv.","févr.","mars","avr.","mai","juin","juil.","août","sept.","oct.","nov.","déc."];
 const INITIALS = "JFMAMJJASOND".split("");
-const NB_COLORS = 8;
+const NB_COLORS = 16;
 const eur = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 const eur0 = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 const $ = (id) => document.getElementById(id);
@@ -467,13 +471,13 @@ async function load(silent) {
     try { const c = JSON.parse(localStorage.getItem(cacheKey) || "null"); if (c) { ({ cats, rows, sources, revRows } = c); recs = c.recs || []; render(); } } catch {}
   }
   const y0 = `${year}-01-01`, y1 = `${year}-12-31`;
-  const depCols = "id,date,montant,categorie_id,note" + (recError ? "" : ",recurrence_id");
+  const depCols = "id,date,montant,categorie_id,note,created_at" + (recError ? "" : ",recurrence_id");
   const [c, d, s, r, rc] = await Promise.all([
     db.from("categories").select("id,nom,couleur,ordre").order("ordre").order("created_at"),
     fetchAll(() => db.from("depenses").select(depCols).gte("date", y0).lte("date", y1)
       .order("date", { ascending: false }).order("created_at", { ascending: false })),
     db.from("sources_revenu").select("id,nom,couleur,ordre").order("ordre").order("created_at"),
-    fetchAll(() => db.from("revenus").select("id,date,montant,source_id,note").gte("date", y0).lte("date", y1)
+    fetchAll(() => db.from("revenus").select("id,date,montant,source_id,note,created_at").gte("date", y0).lte("date", y1)
       .order("date", { ascending: false }).order("created_at", { ascending: false })),
     recError ? { data: [] } : db.from("recurrences").select("id,montant,categorie_id,note,jour,tous_les_mois,mois,debut,created_at").order("created_at"),
   ]);
@@ -496,9 +500,11 @@ async function load(silent) {
     return load(true);
   }
   cats = c.data;
-  rows = d.data.map(x => ({ ...x, montant: Number(x.montant) }));
+  // listes triées par date croissante (puis ordre de saisie), quel que soit l'ordre de saisie
+  const byDate = (a, b) => a.date.localeCompare(b.date) || String(a.created_at || "").localeCompare(String(b.created_at || ""));
+  rows = d.data.map(x => ({ ...x, montant: Number(x.montant) })).sort(byDate);
   sources = revError ? [] : s.data;
-  revRows = revError ? [] : r.data.map(x => ({ ...x, montant: Number(x.montant) }));
+  revRows = revError ? [] : r.data.map(x => ({ ...x, montant: Number(x.montant) })).sort(byDate);
   recs = recError ? [] : rc.data.map(x => ({ ...x, montant: Number(x.montant), mois: x.mois || [] }));
   const created = await generateRecurring();
   if (created) { toast(`${created} dépense${created > 1 ? "s" : ""} récurrente${created > 1 ? "s" : ""} ajoutée${created > 1 ? "s" : ""}`); return load(true); }
@@ -547,13 +553,13 @@ function bucketize(list, n, idx, fk = "categorie_id") {
   return b;
 }
 const byMonth = () => bucketize(rows, 12, mOf);
-// Semaines du mois : 1–7, 8–14, 15–21, 22–28, 29–fin
+// Semaines du mois : 1–7, 8–14, 15–21, puis 22 jusqu'à la fin du mois (4 semaines maximum)
 function weeksOf(m) {
-  const days = daysIn(year, m), n = Math.ceil(days / 7);
-  const ranges = Array.from({ length: n }, (_, i) => [i * 7 + 1, Math.min(i * 7 + 7, days)]);
+  const days = daysIn(year, m), n = 4;
+  const ranges = [[1, 7], [8, 14], [15, 21], [22, days]];
   const list = rows.filter(r => mOf(r) === m);
   return {
-    b: bucketize(list, n, r => Math.floor((dOf(r) - 1) / 7)),
+    b: bucketize(list, n, r => Math.min(3, Math.floor((dOf(r) - 1) / 7))),
     labels: ranges.map(([a, z]) => `${a}–${z}`),
     long: (i) => `Semaine du ${ranges[i][0]} au ${ranges[i][1]} ${MONTHS[m]}`,
     ranges,
@@ -762,38 +768,46 @@ $("cl-items").addEventListener("click", (e) => {
   closeSheet("sheet-cl"); openForm(rows.find(r => r.id === it.dataset.id), "dep");
 });
 
-// ---------- Proportions ----------
+// ---------- Proportions : camembert ----------
+// Affiche le % sur les parts assez grandes pour être lisibles
+const pieLabels = { id: "pieLabels", afterDatasetsDraw(chart) {
+  const { ctx } = chart, ds = chart.data.datasets[0], tot = ds.data.reduce((a, b) => a + b, 0);
+  chart.getDatasetMeta(0).data.forEach((arc, i) => {
+    const v = ds.data[i]; if (!tot || v / tot < 0.07) return;
+    const p = arc.tooltipPosition();
+    ctx.save(); ctx.fillStyle = "#fff"; ctx.font = "600 13px -apple-system, system-ui, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 3;
+    ctx.fillText(Math.round(v / tot * 100) + " %", p.x, p.y); ctx.restore();
+  });
+} };
 function renderProp() {
-  const el = $("view-prop"), P = period(), list = catsInData();
-  const totals = list.map(c => sum(P.b.map(p => p.cats[c.id] || 0)));
-  const all = sum(totals);
+  const el = $("view-prop"), list = catsInData();
+  const src = fMonth == null ? rows : rows.filter(r => mOf(r) === fMonth);
   const when = fMonth == null ? `l'année ${year}` : `${MONTHS[fMonth]} ${year}`;
+  const sorted = list.map(c => ({ c, v: sum(src.filter(r => r.categorie_id === c.id).map(r => r.montant)) }))
+    .filter(x => x.v > 0).sort((a, b) => b.v - a.v);
+  const all = sum(sorted.map(x => x.v));
   if (!all) { el.innerHTML = `<div class="empty">Aucune dépense sur ${when}.</div>`; return; }
-  const sorted = list.map((c, i) => ({ c, v: totals[i] })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
-  let rowsP = P.b.map((p, i) => ({ ...p, i })).filter(p => p.total > 0);
-  if (fMonth == null) rowsP = rowsP.reverse();
   el.innerHTML = `
     <div class="card">
       <h2>Répartition sur ${when}</h2>
-      ${segBar(sorted.map(x => [x.c, x.v]))}
-      <table><tr><th>Catégorie</th><th>Part</th><th>Montant</th></tr>
-      ${sorted.map(x => `<tr><td>${chipBtn(x.c)}</td><td><b>${fmtPct(x.v / all * 100)}</b></td><td>${eur.format(x.v)}</td></tr>`).join("")}
-      </table>
+      <div class="chart-wrap" style="height:260px"><canvas id="chart-pie" role="img" aria-label="Répartition des dépenses par catégorie"></canvas></div>
     </div>
     <div class="card">
-      <h2>Part de chaque catégorie par ${P.per} (%)</h2>
-      <div class="legend">${list.map(c => chipBtn(c)).join("")}</div>
-      <div class="chart-wrap"><canvas id="chart-prop" role="img" aria-label="Proportion des catégories par ${P.per}"></canvas></div>
-    </div>
-    ${rowsP.map(p => {
-      const used = list.filter(c => p.cats[c.id] > 0).sort((a, b) => p.cats[b.id] - p.cats[a.id]);
-      return `<div class="month">
-        <div class="month-head"><span class="name">${P.name(p.i)}</span><span class="sum">${eur.format(p.total)}</span></div>
-        ${segBar(used.map(c => [c, p.cats[c.id]]))}
-        <div class="chips">${used.map(c => chipBtn(c, "<b>" + fmtPct(p.cats[c.id] / p.total * 100) + "</b>")).join("")}</div>
-      </div>`;
-    }).join("")}`;
-  stackChart("chart-prop", list, P.b, P.labels, P.long, true);
+      <table><tr><th>Catégorie</th><th>Part</th><th>Montant</th></tr>
+      ${sorted.map(x => `<tr><td>${chipBtn(x.c)}</td><td><b>${fmtPct(x.v / all * 100)}</b></td><td>${eur.format(x.v)}</td></tr>`).join("")}
+      <tr><td><b>Total</b></td><td></td><td><b>${eur.format(all)}</b></td></tr>
+      </table>
+      <div class="sync" style="margin-top:8px">Touche une catégorie pour voir ses dépenses.</div>
+    </div>`;
+  drawChart("chart-pie", {
+    type: "pie",
+    data: { labels: sorted.map(x => x.c.nom), datasets: [{ data: sorted.map(x => Math.round(x.v * 100) / 100),
+      backgroundColor: sorted.map(x => colorHex(x.c)), borderColor: css("--surface"), borderWidth: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+      plugins: { legend: { display: false }, tooltip: { enabled: false } } },
+    plugins: [pieLabels],
+  });
 }
 
 // ---------- Prévision ----------
@@ -1231,7 +1245,12 @@ $("cat-form").addEventListener("submit", async (e) => {
     ? await db.from(K.table).update({ nom, couleur: selColor }).eq("id", editingCat.id).select().single()
     : await db.from(K.table).insert({ nom, couleur: selColor, ordre: Math.max(-1, ...list.map(c => c.ordre)) + 1 }).select().single();
   $("c-save").disabled = false;
-  if (res.error) { $("cat-err").textContent = "Échec de l'enregistrement (connexion internet ?)."; return; }
+  if (res.error) {
+    $("cat-err").textContent = /check/i.test(res.error.message || "") && selColor >= 8
+      ? "Cette couleur demande la mise à jour de la base : lance migration-v5.sql dans Supabase."
+      : "Échec de l'enregistrement (connexion internet ?).";
+    return;
+  }
   const saved = res.data, i = list.findIndex(c => c.id === saved.id);
   if (i >= 0) list[i] = saved; else list.push(saved);
   closeSheet("sheet-cat");
