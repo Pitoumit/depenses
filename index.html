@@ -78,6 +78,13 @@
   .card-head button { color: var(--accent); font-size: 14px; }
   .card .items-flat .item { padding-left: 0; padding-right: 0; }
   .card .items-flat .item:last-child { border-bottom: 0; }
+  .ac-banner { display: flex; align-items: center; gap: 12px; width: calc(100% - 32px); text-align: left; padding: 14px 16px; }
+  .ac-banner .main { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .ac-banner b { font-weight: 600; }
+  .kbox { margin-top: 12px; padding: 12px; border-radius: 12px; background: var(--bg); }
+  .kbox .klabel { font-size: 12px; color: var(--muted); }
+  .kbox code { display: block; word-break: break-all; font-size: 13px; margin: 4px 0 6px; font-family: ui-monospace, Menlo, monospace; }
+  .kbox button { color: var(--accent); font-size: 14px; font-weight: 600; }
   .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .mask-btn { width: 30px; height: 30px; margin: -6px -6px -6px 0; border-radius: 15px; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .mask-btn .ic { width: 18px; height: 18px; }
@@ -361,6 +368,12 @@
       <div class="list" id="set-sources"></div>
       <button class="secondary" id="set-add-src" type="button">+ Ajouter une source</button>
     </div>
+    <div id="set-key-block" class="hidden">
+      <div class="section-title">Saisie automatique (Apple Pay)</div>
+      <div class="list" id="set-keys"></div>
+      <button class="secondary" id="set-add-key" type="button">+ Créer une clé pour un raccourci</button>
+      <div class="sync" style="margin-top:6px">Une clé permet seulement d'ajouter des dépenses. Supprime-la si un téléphone est perdu.</div>
+    </div>
     <div class="section-title">Sauvegarde</div>
     <button class="secondary" id="export" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M5 20.5h14"/></svg><span>Exporter toutes les données (CSV)</span></button>
     <button class="linkbtn" id="logout" type="button">Se déconnecter</button>
@@ -418,6 +431,17 @@
     <h2><span id="cl-title"></span><button type="button" data-close="sheet-cl">Fermer</button></h2>
     <div class="sub" id="cl-sub" style="margin:-6px 0 12px"></div>
     <div class="list" id="cl-items"></div>
+  </div>
+</div>
+
+<!-- Clé créée : valeurs à copier dans le raccourci -->
+<div class="sheet-bg hidden" id="sheet-key">
+  <div class="sheet">
+    <h2><span>Clé créée</span><button type="button" data-close="sheet-key">Terminé</button></h2>
+    <div class="sub">Copie ces 3 valeurs dans ton raccourci. <b>La clé ne sera plus jamais affichée</b> : si tu la perds, supprime-la et crée-en une autre.</div>
+    <div class="kbox"><div class="klabel">Adresse (URL)</div><code id="k-url"></code><button type="button" data-copy="k-url">Copier</button></div>
+    <div class="kbox"><div class="klabel">En-tête « apikey »</div><code id="k-api"></code><button type="button" data-copy="k-api">Copier</button></div>
+    <div class="kbox"><div class="klabel">Clé (champ « jeton »)</div><code id="k-tok"></code><button type="button" data-copy="k-tok">Copier</button></div>
   </div>
 </div>
 
@@ -552,6 +576,10 @@ const KINDS = {
 };
 const findIn = (list, id) => list.find(c => c.id === id) || { id, nom: "Sans catégorie", couleur: 7 };
 const catOf = (id) => findIn(cats, id);
+const A_CLASSER = "À classer";        // catégorie créée par l'ajout automatique pour les commerçants inconnus
+const isAC = (id) => catOf(id).nom === A_CLASSER;
+const realCats = () => cats.filter(c => c.nom !== A_CLASSER);
+let SB_URL = "", SB_KEY = "";
 const srcOf = (id) => findIn(sources, id);
 
 function toast(msg) {
@@ -571,6 +599,7 @@ async function init() {
     document.body.innerHTML = '<div class="login"><h1>Configuration manquante</h1><p>Renseigne SUPABASE_URL et SUPABASE_ANON_KEY dans le fichier config.js, ou vérifie la connexion internet.</p></div>';
     return;
   }
+  SB_URL = url; SB_KEY = key;
   db = supabase.createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, storage: window.localStorage } });
   try { $("email").value = localStorage.getItem("last-email") || ""; } catch {}
   const { data } = await db.auth.getSession();
@@ -587,7 +616,7 @@ function showApp() {
   $("login").classList.add("hidden"); $("app").classList.remove("hidden");
   if (started) return; started = true;
   tab("apercu");
-  Promise.all([load(), loadNotes()]).then(handleLink);
+  load().then(loadNotes).then(handleLink);   // les notes après l'espace (connu seulement une fois chargé)
   const ch = db.channel("foyer-live");
   for (const t of ["depenses", "categories", "revenus", "sources_revenu", "recurrences", "espaces"])
     ch.on("postgres_changes", { event: "*", schema: "public", table: t }, () => load(true));
@@ -1096,11 +1125,18 @@ function renderApercu(months) {
     const vc = sum(toDate(m.items, today).filter(r => r.categorie_id === c.id).map(r => r.montant));
     const d = pc > 0 ? (vc - pc) / pc * 100 : null;
     return { c, v, b: c.budget || null, d: d != null && Math.abs(d) >= 10 ? d : null };
-  }).filter(x => x.v > 0 || x.b).sort((a, b) => (!!b.b - !!a.b) || b.v - a.v);
+  }).filter(x => (x.v > 0 || x.b) && x.c.nom !== A_CLASSER).sort((a, b) => (!!b.b - !!a.b) || b.v - a.v);
   const anyBudget = list.some(x => x.b);
+  const acCat = cats.find(c => c.nom === A_CLASSER);
+  const acRows = acCat ? rows.filter(r => r.categorie_id === acCat.id) : [];
   const recent = [...m.items].sort((a, b) => b.date.localeCompare(a.date) || String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 3);
 
-  el.innerHTML = `
+  el.innerHTML = (acRows.length ? `
+    <button type="button" class="card ac-banner" data-acopen="${acCat.id}">
+      <span class="dot" style="background:${colorVar(acCat)}"></span>
+      <span class="main"><b>${acRows.length} dépense${acRows.length > 1 ? "s" : ""} à classer</b><span class="sync">Ajoutée${acRows.length > 1 ? "s" : ""} automatiquement · ${eur.format(sum(acRows.map(r => r.montant)))}</span></span>
+      <span class="chev">${I.chevR}</span>
+    </button>` : "") + `
     <div class="card">
       <div class="row-between"><span class="ap-month">${MONTHS[cm]} ${cy}</span><button type="button" class="mask-btn" aria-label="Masquer les montants"></button></div>
       <div class="sub" style="margin-top:6px">Dépensé ce mois-ci</div>
@@ -1137,6 +1173,8 @@ function renderApercu(months) {
     </div>`;
 }
 $("view-apercu").addEventListener("click", (e) => {
+  const ac = e.target.closest("[data-acopen]");
+  if (ac) { openCatList(ac.dataset.acopen, null); return; }
   const c = e.target.closest("[data-apcat]");
   if (c) { openCatList(c.dataset.apcat, new Date().getMonth()); return; }
   onItemClick(e);
@@ -1158,12 +1196,11 @@ function parseAmount(t) {
 // Catégorie apprise : même commerçant déjà classé, sinon même premier mot ; jamais devinée au hasard
 function guessCat(note) {
   const t = String(note || "").trim().toLowerCase(); if (!t) return null;
-  const ok = (e) => e && cats.some(c => c.id === e.cat);
-  const exact = noteIdx.get(t); if (ok(exact)) return exact.cat;
+  const exact = bestCat(noteIdx.get(t)); if (exact) return exact;
   const word = (t.match(/[a-zà-ÿ0-9]{3,}/) || [])[0]; if (!word) return null;
-  const cands = [...noteIdx.values()].filter(e => ok(e) && e.note.toLowerCase().includes(word));
+  const cands = [...noteIdx.values()].filter(e => bestCat(e) && e.note.toLowerCase().includes(word));
   if (!cands.length) return null;
-  const votes = {}; for (const e of cands) votes[e.cat] = (votes[e.cat] || 0) + e.n;
+  const votes = {}; for (const e of cands) { const c = bestCat(e); votes[c] = (votes[c] || 0) + e.n; }
   return Object.entries(votes).sort((a, b) => b[1] - a[1])[0][0];
 }
 async function handleLink() {
@@ -1337,7 +1374,7 @@ $("y-next").onclick = () => { year++; load(); };
 
 // ---------- Formulaire dépense / revenu ----------
 function drawFormCats() {
-  const list = KINDS[formKind].list();
+  const list = formKind === "dep" ? realCats() : KINDS[formKind].list();
   $("f-cats").innerHTML = list.map(c =>
     `<button type="button" data-c="${c.id}" class="${c.id === selCat ? "on" : ""}"><span class="dot" style="background:${colorVar(c)}"></span><span class="n">${esc(c.nom)}</span></button>`).join("")
     + `<button type="button" class="add" data-new="1">+ Nouvelle</button>`;
@@ -1348,12 +1385,21 @@ $("f-cats").addEventListener("click", (e) => {
   selCat = b.dataset.c; catTouched = true; drawFormCats();
 });
 // ---------- Notes déjà utilisées : suggestions + catégorie associée ----------
-function addNote(note, cat, date, fromDb) {
+function addNote(note, cat, date) {
   const t = String(note || "").trim(); if (!t) return;
-  const k = t.toLowerCase(), e = noteIdx.get(k);
-  if (!e) { noteIdx.set(k, { note: t, cat, n: 1, last: date }); return; }
-  e.n++;
-  if (!fromDb || date >= e.last) { e.cat = cat; e.last = date; }
+  const k = t.toLowerCase();
+  const e = noteIdx.get(k) || { note: t, n: 0, last: "", byCat: {} };
+  e.n++; if (date >= e.last) e.last = date;
+  const b = e.byCat[cat] || (e.byCat[cat] = { n: 0, last: "" });
+  b.n++; if (date >= b.last) b.last = date;
+  noteIdx.set(k, e);
+}
+// catégorie retenue pour une note : la plus récente parmi les vraies catégories (jamais « À classer »)
+function bestCat(e) {
+  if (!e) return null;
+  const real = new Set(realCats().map(c => c.id));
+  const best = Object.entries(e.byCat).filter(([id]) => real.has(id)).sort((a, b) => b[1].last.localeCompare(a[1].last) || b[1].n - a[1].n)[0];
+  return best ? best[0] : null;
 }
 async function loadNotes() {
   const forEsp = espId;
@@ -1361,29 +1407,31 @@ async function loadNotes() {
   if (forEsp !== espId) return;
   if (error) return;
   noteIdx = new Map();
-  for (const r of data) addNote(r.note, r.categorie_id, r.date, true);
+  for (const r of data) addNote(r.note, r.categorie_id, r.date);
 }
 function drawSugg() {
   const el = $("f-sugg");
   if (formKind !== "dep") { el.innerHTML = ""; return; }
   const q = $("f-note").value.trim().toLowerCase();
-  let list = [...noteIdx.values()].filter(e => cats.some(c => c.id === e.cat));
+  let list = [...noteIdx.values()].filter(e => bestCat(e));
   if (q) list = list.filter(e => e.note.toLowerCase().includes(q) && e.note.toLowerCase() !== q)
     .sort((a, b) => (b.note.toLowerCase().startsWith(q) - a.note.toLowerCase().startsWith(q)) || b.n - a.n);
   else list.sort((a, b) => b.n - a.n || b.last.localeCompare(a.last));
-  el.innerHTML = list.slice(0, 6).map(e => { const c = catOf(e.cat);
+  el.innerHTML = list.slice(0, 6).map(e => { const c = catOf(bestCat(e));
     return `<button type="button" data-note="${esc(e.note)}"><span class="dot" style="background:${colorVar(c)}"></span>${esc(e.note)}</button>`; }).join("");
 }
 $("f-note").addEventListener("input", () => {
   const e = noteIdx.get($("f-note").value.trim().toLowerCase());
-  if (e && !editing && !catTouched && formKind === "dep" && cats.some(c => c.id === e.cat)) { selCat = e.cat; drawFormCats(); }
+  const bc = bestCat(e);
+  if (bc && !editing && !catTouched && formKind === "dep") { selCat = bc; drawFormCats(); }
   drawSugg();
 });
 $("f-sugg").addEventListener("click", (ev) => {
   const b = ev.target.closest("[data-note]"); if (!b) return;
   $("f-note").value = b.dataset.note;
   const e = noteIdx.get(b.dataset.note.toLowerCase());
-  if (e && !editing && cats.some(c => c.id === e.cat)) { selCat = e.cat; drawFormCats(); }
+  const bc = bestCat(e);
+  if (bc && (!editing || isAC(editing.categorie_id))) { selCat = bc; drawFormCats(); }
   drawSugg();
 });
 function defaultDate(kind) {
@@ -1403,10 +1451,18 @@ function openForm(row, kind = "dep") {
   $("f-date").value = row ? row.date : defaultDate(kind);
   $("f-note").value = row ? (row.note || "") : "";
   const list = K.list(), last = localStorage.getItem("last-" + kind);
-  selCat = row ? row[K.fk] : (list.some(c => c.id === last) ? last : list[0]?.id);
+  const choices = dep ? realCats() : list;
+  selCat = row ? row[K.fk] : (choices.some(c => c.id === last) ? last : choices[0]?.id);
   $("delete").classList.toggle("hidden", !row);
   $("form-err").textContent = ""; $("form-err").style.color = "";
   catTouched = false;
+  // dépense arrivée « À classer » : proposer la catégorie apprise, sinon demander de choisir
+  if (dep && row && isAC(row.categorie_id)) {
+    selCat = guessCat(row.note);
+    $("f-cat-label").innerHTML = selCat
+      ? `Catégorie · <span style="color:var(--accent);font-weight:600">proposée</span> d'après « ${esc(row.note)} »`
+      : `Catégorie · <span style="color:var(--accent);font-weight:600">à choisir</span>${row.note ? ` (elle sera retenue pour « ${esc(row.note)} »)` : ""}`;
+  }
   const fe = espOf();
   $("form-esp").classList.toggle("hidden", !espOn || espaces.length < 2 || !fe);
   if (fe) $("form-esp").innerHTML = `<span class="dot" style="background:${colorVar(fe)}"></span>Espace ${esc(fe.nom)}`;
@@ -1455,7 +1511,7 @@ $("add").onclick = () => {
   long ? openQuick() : openForm(null, "dep");
 };
 // Saisie rapide : montant seul, dernière catégorie utilisée, date du jour
-function quickCat() { const last = localStorage.getItem("last-dep"); return cats.find(c => c.id === last) || cats[0]; }
+function quickCat() { const last = localStorage.getItem("last-dep"); const rc = realCats(); return rc.find(c => c.id === last) || rc[0]; }
 function openQuick() {
   const c = quickCat(); if (!c) return openForm(null, "dep");
   $("q-cat").innerHTML = `Dans ${chip(c)} · aujourd'hui`;
@@ -1508,7 +1564,7 @@ $("form").addEventListener("submit", async (e) => {
     $("form-err").textContent = "Échec de l'enregistrement (connexion internet ?)."; return;
   }
   try { localStorage.setItem("last-" + formKind, selCat); } catch {}
-  if (formKind === "dep" && rec.note) addNote(rec.note, rec.categorie_id, rec.date, false);
+  if (formKind === "dep" && rec.note) addNote(rec.note, rec.categorie_id, rec.date);
   const wasEdit = !!editing;
   const y = Number(rec.date.slice(0, 4)), m = Number(rec.date.slice(5, 7)) - 1;
   openMonths.add(m);
@@ -1534,6 +1590,48 @@ function listHTML(list, kind) {
   return list.map(c => `<button class="item" data-cat="${c.id}" data-kind="${kind}"><span class="dot" style="background:${colorVar(c)}"></span>
     <span class="main"><div class="t">${esc(c.nom)}</div></span><span class="chev">${I.chevR}</span></button>`).join("");
 }
+let keys = [], keyError = false;
+async function loadKeys() {
+  const { data, error } = await db.from("jetons").select("id,nom,created_at,dernier_usage").order("created_at");
+  keyError = !!error; keys = error ? [] : data;
+  $("set-key-block").classList.toggle("hidden", keyError);
+  const d = (t) => t ? new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : null;
+  $("set-keys").innerHTML = keys.length ? keys.map(k => `<button class="item" data-key="${k.id}">
+      <span class="main"><div class="t">${esc(k.nom)}</div><div class="d">Créée le ${d(k.created_at)}${k.dernier_usage ? " · utilisée le " + d(k.dernier_usage) : " · jamais utilisée"}</div></span>
+      <span class="chev">${I.x}</span></button>`).join("")
+    : `<div class="item" style="color:var(--muted)">Aucune clé pour l'instant</div>`;
+}
+const b64url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+async function sha256hex(t) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+$("set-add-key").onclick = async () => {
+  const nom = (prompt("Nom de la clé (pour la reconnaître) :", "iPhone") || "").trim();
+  if (!nom) return;
+  const tok = "dep_" + b64url(crypto.getRandomValues(new Uint8Array(24)));
+  const { error } = await db.from("jetons").insert({ nom: nom.slice(0, 40), empreinte: await sha256hex(tok) });
+  if (error) { toast("Échec de la création (connexion internet ?)"); return; }
+  $("k-url").textContent = SB_URL + "/rest/v1/rpc/ajout_rapide";
+  $("k-api").textContent = SB_KEY;
+  $("k-tok").textContent = tok;
+  openSheet("sheet-key"); loadKeys();
+};
+$("set-keys").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-key]"); if (!b) return;
+  const k = keys.find(x => x.id === b.dataset.key);
+  if (!k || !confirm(`Supprimer la clé « ${k.nom} » ? Le raccourci qui l'utilise ne pourra plus ajouter de dépenses.`)) return;
+  const { error } = await db.from("jetons").delete().eq("id", k.id);
+  if (error) { toast("Échec (connexion internet ?)"); return; }
+  toast("Clé supprimée"); loadKeys();
+});
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-copy]"); if (!b) return;
+  const t = $(b.dataset.copy).textContent;
+  try { await navigator.clipboard.writeText(t); toast("Copié"); }
+  catch { const r = document.createRange(); r.selectNodeContents($(b.dataset.copy)); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast("Sélectionné : fais Copier"); }
+});
+
 function renderSettings() {
   $("set-esp-block").classList.toggle("hidden", !espOn);
   if (espOn) $("set-esps").innerHTML = espaces.map(e => espItem(e, false)).join("");
@@ -1548,7 +1646,7 @@ function renderSettings() {
   $("set-rev-block").classList.toggle("hidden", revError);
   $("set-sources").innerHTML = listHTML(sources, "rev");
 }
-$("open-settings").onclick = () => { renderSettings(); openSheet("sheet-set"); };
+$("open-settings").onclick = () => { renderSettings(); openSheet("sheet-set"); loadKeys(); };
 $("refresh").onclick = async () => {
   const b = $("refresh"); if (b.classList.contains("spin")) return;
   b.classList.add("spin");
