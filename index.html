@@ -47,6 +47,12 @@
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
   .hidden { display: none !important; }
   .ic { width: 1em; height: 1em; vertical-align: -0.14em; flex: none; }
+  .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .mask-btn { width: 30px; height: 30px; margin: -6px -6px -6px 0; border-radius: 15px; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .mask-btn .ic { width: 18px; height: 18px; }
+  .mask-btn:active { background: var(--track); }
+  .amt { transition: filter .25s ease; }
+  body.masked .amt { filter: blur(7px); -webkit-user-select: none; user-select: none; }
   .gear .ic, .year button .ic, .mnav button .ic { width: 22px; height: 22px; vertical-align: middle; }
 
   header { position: sticky; top: 0; z-index: 5; background: var(--bg); padding-top: env(safe-area-inset-top); margin-top: calc(-1 * env(safe-area-inset-top)); }
@@ -244,7 +250,7 @@
   </header>
 
   <div class="card" id="total-card">
-    <div class="sub" id="total-label">Total dépensé sur l'année</div>
+    <div class="sub row-between"><span id="total-label">Total dépensé sur l'année</span><button type="button" class="mask-btn" aria-label="Masquer les montants"></button></div>
     <div class="big" id="y-total">0 €</div>
     <div class="sync" id="sync">Chargement…</div>
   </div>
@@ -436,6 +442,8 @@ function monthGrid(el, set) {
 }
 let fMonth = null;                    // filtre : null = toute l'année, sinon 0..11
 let fCat = null;                      // filtre catégorie de l'Historique (liste uniquement)
+let masked = false;                   // montants floutés (bouton œil)
+try { masked = localStorage.getItem("masked") === "1"; } catch {}
 let bMonth = new Date().getMonth();   // mois affiché dans le Bilan
 let atDate = null;                    // date choisie dans « Où en étions-nous le… »
 let editing = null, formKind = "dep", selCat = null, catTouched = false;
@@ -627,6 +635,7 @@ function catsInData() {
   const extra = [...new Set(rows.map(r => r.categorie_id))].filter(id => !known.has(id)).map(catOf);
   return [...cats, ...extra];
 }
+const tickEur = (v) => masked ? "•••" : eur0.format(v);
 const chip = (c, txt) => `<span class="chip"><span class="dot" style="background:${colorVar(c)}"></span>${esc(c.nom)}${txt ? " " + txt : ""}</span>`;
 const chipBtn = (c, txt) => `<button type="button" class="chip fc ${fCat === c.id ? "on" : ""} ${fCat && fCat !== c.id && current === "list" ? "dim" : ""}" data-fcat="${c.id}"><span class="dot" style="background:${colorVar(c)}"></span>${esc(c.nom)}${txt ? " " + txt : ""}</button>`;
 const segBar = (parts) => `<div class="bar">${parts.map(([c, v]) => `<i style="flex:${v};background:${colorVar(c)}"></i>`).join("")}</div>`;
@@ -648,6 +657,7 @@ function render() {
   if (current === "prev") renderPrev(months);
   if (current === "bilan") renderBilan();
   if (!$("sheet-set").classList.contains("hidden")) renderSettings();
+  applyMask();
 }
 
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -744,9 +754,19 @@ function topRadius(ctx) {
   for (let k = ctx.datasetIndex + 1; k < ds.length; k++) if (ds[k].data[i] > 0) return 0;
   return { topLeft: 4, topRight: 4 };
 }
+// Animation douce (ralentit à la fin), jouée seulement quand on change d'écran ou de période,
+// pas à chaque actualisation des données.
+const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const lastKey = {};
 function drawChart(id, cfg) {
   if (charts[id]) charts[id].destroy();
   const cv = $(id); if (!cv) return;
+  const key = [current, year, fMonth, bMonth].join("|");
+  const animate = lastKey[id] !== key && !reduceMotion;
+  lastKey[id] = key;
+  cfg.options = cfg.options || {};
+  cfg.options.animation = animate ? { duration: 1100, easing: "easeOutQuart" } : false;
+  if (masked) { cfg.options.plugins = cfg.options.plugins || {}; cfg.options.plugins.tooltip = { ...(cfg.options.plugins.tooltip || {}), enabled: false }; }
   charts[id] = new Chart(cv, cfg);
 }
 function scales(stacked, yFmt, yMax) {
@@ -768,7 +788,7 @@ function stackChart(id, list, b, labels, long, percent) {
   drawChart(id, {
     type: "bar", data: { labels, datasets },
     options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+      responsive: true, maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: { legend: { display: false }, tooltip: {
         enabled: !percent,
@@ -780,7 +800,7 @@ function stackChart(id, list, b, labels, long, percent) {
             : ` ${it.dataset.label} : ${eur.format(it.raw)}`,
           footer: (it) => percent ? "" : "Total : " + eur.format(b[it[0].dataIndex].total),
         } } },
-      scales: scales(true, percent ? (v) => v + " %" : (v) => eur0.format(v), percent ? 100 : undefined),
+      scales: scales(true, percent ? (v) => v + " %" : tickEur, percent ? 100 : undefined),
     },
   });
 }
@@ -855,7 +875,7 @@ function renderProp() {
     type: "pie",
     data: { labels: sorted.map(x => x.c.nom), datasets: [{ data: sorted.map(x => Math.round(x.v * 100) / 100),
       backgroundColor: sorted.map(x => colorHex(x.c)), borderColor: css("--surface"), borderWidth: 2 }] },
-    options: { responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+    options: { responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { enabled: false } } },
     plugins: [pieLabels],
   });
@@ -885,7 +905,7 @@ function renderPrev(months) {
   const reste = prev - spent;
   el.innerHTML = `
     <div class="card">
-      <div class="sub">Prévision ${MONTHS[cm]} ${cy}</div>
+      <div class="sub row-between"><span>Prévision ${MONTHS[cm]} ${cy}</span><button type="button" class="mask-btn" aria-label="Masquer les montants"></button></div>
       <div class="big">${eur.format(prev)}</div>
       <div class="sync">Moyenne de ${past.length} mois (${range})</div>
       <div class="progress ${ratio > 1 ? "over" : ""}"><i style="width:${Math.min(100, ratio * 100)}%"></i></div>
@@ -920,13 +940,13 @@ function renderPrev(months) {
       ],
     },
     options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+      responsive: true, maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: { legend: { display: false }, tooltip: { filter: (it) => it.raw != null, callbacks: {
         title: (it) => MONTHS[it[0].dataIndex] + (it[0].dataIndex === cm ? " (en cours)" : ""),
         label: (it) => ` ${it.dataset.label} : ${eur.format(it.raw)}`,
       } } },
-      scales: scales(false, (v) => eur0.format(v)),
+      scales: scales(false, tickEur),
     },
   });
 }
@@ -960,7 +980,7 @@ function renderBilan() {
   el.innerHTML = `
     <div class="card">
       <div class="mnav"><button id="b-prev" aria-label="Mois précédent">${I.chevL}</button><select id="b-month" aria-label="Mois">${MONTHS.map((m, i) => `<option value="${i}" ${i === bMonth ? "selected" : ""}>${cap(m)} ${year}</option>`).join("")}</select><button id="b-next" aria-label="Mois suivant">${I.chevR}</button></div>
-      <div class="sub">${isCur ? "Il reste ce mois-ci" : "Il est resté en " + MONTHS[bMonth]}</div>
+      <div class="sub row-between"><span>${isCur ? "Il reste ce mois-ci" : "Il est resté en " + MONTHS[bMonth]}</span><button type="button" class="mask-btn" aria-label="Masquer les montants"></button></div>
       <div class="big ${sign(reste)}">${signed(reste)}</div>
       <div class="kv"><span>Revenus</span><b>${eur.format(tRev)}</b></div>
       <div class="kv"><span>Dépenses</span><b>${eur.format(tDep)}</b></div>
@@ -982,7 +1002,7 @@ function renderBilan() {
     </div>
 
     <div class="month">
-      <div class="month-head"><span class="name">Revenus de ${MONTHS[bMonth]}</span><span class="sum pos">${tRev ? "+" + eur.format(tRev) : ""}</span></div>
+      <div class="month-head"><span class="name" style="text-transform:none">Revenus de ${MONTHS[bMonth]}</span><span class="sum pos">${tRev ? "+" + eur.format(tRev) : ""}</span></div>
       ${bySrc.length ? `<div class="chips">${bySrc.map(x => chip(x.s, eur.format(x.v))).join("")}</div>` : ""}
       ${mRev.length ? `<div class="items">${mRev.map(r => itemHTML(r, "rev")).join("")}</div>`
         : `<div class="chips">Aucun revenu saisi pour ce mois.</div>`}
@@ -1011,7 +1031,7 @@ function renderBilan() {
       datasets: [{ label: "Reste", data, borderColor: css("--accent"), borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
         stepped: true, fill: { target: "origin", above: good + "26", below: bad + "26" } }] },
     options: {
-      responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+      responsive: true, maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: { legend: { display: false }, tooltip: { filter: (it) => it.raw != null, callbacks: {
         title: (it) => `${it[0].dataIndex + 1} ${MONTHS[bMonth]}`,
@@ -1019,28 +1039,28 @@ function renderBilan() {
       } } },
       scales: {
         x: { grid: { display: false }, ticks: { color: css("--text-2"), font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 8 } },
-        y: { grid: { color: css("--grid") }, border: { display: false }, ticks: { color: css("--text-2"), font: { size: 11 }, callback: (v) => eur0.format(v) } },
+        y: { grid: { color: css("--grid") }, border: { display: false }, ticks: { color: css("--text-2"), font: { size: 11 }, callback: tickEur } },
       },
     },
   });
 
   $("b-prev").onclick = () => stepBilan(-1);
   $("b-next").onclick = () => stepBilan(1);
-  $("b-month").onchange = (e) => { bMonth = Number(e.target.value); atDate = null; renderBilan(); };
-  $("b-date").onchange = (e) => { if (e.target.value) { atDate = e.target.value; renderBilan(); } };
+  $("b-month").onchange = (e) => { bMonth = Number(e.target.value); atDate = null; renderBilan(); applyMask(); };
+  $("b-date").onchange = (e) => { if (e.target.value) { atDate = e.target.value; renderBilan(); applyMask(); } };
   if ($("b-copy")) $("b-copy").onclick = () => copyPrevRevenus(py, pm);
 }
 function stepBilan(d) {
   let m = bMonth + d, y = year;
   if (m < 0) { m = 11; y--; } if (m > 11) { m = 0; y++; }
   bMonth = m; atDate = null;
-  if (y !== year) { year = y; load(); } else renderBilan();
+  if (y !== year) { year = y; load(); } else { renderBilan(); applyMask(); }
   window.scrollTo(0, 0);
 }
 $("view-bilan").addEventListener("click", (e) => {
   if (onItemClick(e)) return;
   const tr = e.target.closest("[data-bm]");
-  if (tr) { bMonth = Number(tr.dataset.bm); atDate = null; renderBilan(); window.scrollTo(0, 0); }
+  if (tr) { bMonth = Number(tr.dataset.bm); atDate = null; renderBilan(); applyMask(); window.scrollTo(0, 0); }
 });
 async function copyPrevRevenus(py, pm) {
   const from = `${py}-${pad(pm + 1)}-01`, to = `${py}-${pad(pm + 1)}-${pad(daysIn(py, pm))}`;
@@ -1489,6 +1509,55 @@ $("export").addEventListener("click", async () => {
   } catch { toast("Échec de l'export (connexion internet ?)"); }
   btn.disabled = false; btn.querySelector("span").textContent = "Exporter toutes les données (CSV)";
 });
+
+// ---------- Flouter les montants ----------
+// Chaque montant en € affiché est entouré d'un <span class="amt">, flouté quand le mode est actif.
+const EUR_RE = /[+−-]?\d{1,3}(?:[\s\u202f\u00a0]\d{3})*(?:,\d{1,2})?[\s\u202f\u00a0]?€/g;
+function wrapAmounts(root) {
+  const nodes = [];
+  const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let n = walk.currentNode.nodeType === 3 ? walk.currentNode : walk.nextNode(); n; n = walk.nextNode()) {
+    const p = n.parentElement;
+    if (!p || p.closest(".amt, script, style, select, option, textarea")) continue;
+    EUR_RE.lastIndex = 0;
+    if (EUR_RE.test(n.nodeValue)) nodes.push(n);
+  }
+  for (const n of nodes) {
+    const frag = document.createDocumentFragment(), t = n.nodeValue;
+    let last = 0; EUR_RE.lastIndex = 0;
+    for (let m; (m = EUR_RE.exec(t)); ) {
+      if (m.index > last) frag.appendChild(document.createTextNode(t.slice(last, m.index)));
+      const sp = document.createElement("span"); sp.className = "amt"; sp.textContent = m[0]; frag.appendChild(sp);
+      last = m.index + m[0].length;
+    }
+    if (last < t.length) frag.appendChild(document.createTextNode(t.slice(last)));
+    n.replaceWith(frag);
+  }
+}
+const amtObs = new MutationObserver((muts) => {
+  amtObs.disconnect();
+  for (const m of muts) for (const n of m.addedNodes) {
+    if (n.nodeType === 1) wrapAmounts(n);
+    else if (n.nodeType === 3 && n.parentElement) wrapAmounts(n.parentElement);
+  }
+  amtObs.observe(document.body, { childList: true, subtree: true });
+});
+wrapAmounts(document.body);
+amtObs.observe(document.body, { childList: true, subtree: true });
+function applyMask() {
+  document.body.classList.toggle("masked", masked);
+  document.querySelectorAll(".mask-btn").forEach(b => {
+    b.innerHTML = masked ? '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-2.9 3.8M6.6 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7c1.9 0 3.6-.6 5-1.5"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18"/></svg>' : '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+    b.setAttribute("aria-label", masked ? "Afficher les montants" : "Masquer les montants");
+  });
+}
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".mask-btn")) return;
+  masked = !masked;
+  try { localStorage.setItem("masked", masked ? "1" : "0"); } catch {}
+  applyMask(); render();
+});
+applyMask();
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 init();
