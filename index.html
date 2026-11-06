@@ -60,6 +60,24 @@
   .lock-box .badge .ic { width: 26px; height: 26px; }
   .lock-box h2 { margin: 0 0 6px; font-size: 22px; }
   .lock-box input { text-align: center; letter-spacing: .5em; font-size: 26px; margin-top: 18px; }
+  .ap-month { font-size: 13px; color: var(--text-2); text-transform: capitalize; }
+  .ap-rows .kv { margin-top: 8px; }
+  .ap-link { color: var(--accent); font-size: 14px; }
+  .bud { padding: 11px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .bud:last-child { border-bottom: 0; padding-bottom: 2px; }
+  .bud:first-child { padding-top: 2px; }
+  .bud-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 15px; }
+  .bud-top b { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .bud-top .of { color: var(--muted); font-weight: 400; }
+  .bud .progress { height: 6px; margin: 8px 0 0; }
+  .bud .progress.warn i { background: #d98a00; }
+  .bud-sub { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 5px; font-variant-numeric: tabular-nums; }
+  .bud-sub .over { color: var(--danger); }
+  .card-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .card-head h2 { margin: 0; }
+  .card-head button { color: var(--accent); font-size: 14px; }
+  .card .items-flat .item { padding-left: 0; padding-right: 0; }
+  .card .items-flat .item:last-child { border-bottom: 0; }
   .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .mask-btn { width: 30px; height: 30px; margin: -6px -6px -6px 0; border-radius: 15px; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .mask-btn .ic { width: 18px; height: 18px; }
@@ -272,20 +290,21 @@
   <div id="view-list"></div>
   <div id="view-chart" class="hidden"></div>
   <div id="view-prop" class="hidden"></div>
+  <div id="view-apercu" class="hidden"></div>
   <div id="view-prev" class="hidden"></div>
   <div id="view-bilan" class="hidden"></div>
 
   <button class="fab" id="add" aria-label="Ajouter">+</button>
 
   <nav>
-    <button id="tab-list" class="on" data-tab="list">
+    <button id="tab-apercu" data-tab="apercu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7.5" height="9" rx="2"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="2"/><rect x="13.5" y="11.5" width="7.5" height="9.5" rx="2"/><rect x="3" y="15" width="7.5" height="6" rx="2"/></svg>Aperçu</button>
+    <button id="tab-list" data-tab="list">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>Historique</button>
     <button id="tab-chart" data-tab="chart">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Graphique</button>
     <button id="tab-prop" data-tab="prop">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.4 6.4"/></svg>Proportions</button>
-    <button id="tab-prev" data-tab="prev">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>Prévision</button>
     <button id="tab-bilan" data-tab="bilan">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="14" rx="2.5"/><path d="M16 13h2M2.5 10h19M6 6V4.5h12V6"/></svg>Bilan</button>
   </nav>
@@ -356,6 +375,10 @@
     <input id="c-nom" type="text" maxlength="40" required autocomplete="off">
     <label>Couleur</label>
     <div class="swatches" id="c-colors"></div>
+    <div id="c-budget-box">
+      <label for="c-budget">Budget mensuel (facultatif)</label>
+      <input id="c-budget" type="text" inputmode="decimal" placeholder="ex. 600 €" autocomplete="off">
+    </div>
     <button class="primary" type="submit" id="c-save">Enregistrer</button>
     <button class="del hidden" id="c-delete" type="button">Supprimer</button>
     <div class="danger-zone hidden" id="c-move">
@@ -490,7 +513,7 @@ function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;
 
 let db, year = new Date().getFullYear(), current = "list";
 let rows = [], cats = [], revRows = [], sources = [], revError = false;
-let recs = [], recsAll = [], recError = false, generating = false;
+let recs = [], recsAll = [], recError = false, generating = false, budgetError = false;
 let repOn = false, repMode = "all", repMonths = new Set();
 let editingRec = null, rMode = "all", rMonths = new Set(), rCat = null;
 const MS = MONTHS_SHORT.map(m => m.replace(".", ""));
@@ -563,9 +586,8 @@ let started = false;
 function showApp() {
   $("login").classList.add("hidden"); $("app").classList.remove("hidden");
   if (started) return; started = true;
-  tab("list");
-  load();
-  loadNotes();
+  tab("apercu");
+  Promise.all([load(), loadNotes()]).then(handleLink);
   const ch = db.channel("foyer-live");
   for (const t of ["depenses", "categories", "revenus", "sources_revenu", "recurrences", "espaces"])
     ch.on("postgres_changes", { event: "*", schema: "public", table: t }, () => load(true));
@@ -609,7 +631,7 @@ async function load(silent) {
   const depCols = "id,date,montant,categorie_id,note,created_at" + (recError ? "" : ",recurrence_id");
   const loadedEsp = espId;
   const [c, d, s, r, rc] = await Promise.all([
-    inEsp(db.from("categories").select("id,nom,couleur,ordre")).order("ordre").order("created_at"),
+    inEsp(db.from("categories").select("id,nom,couleur,ordre" + (budgetError ? "" : ",budget"))).order("ordre").order("created_at"),
     fetchAll(() => inEsp(db.from("depenses").select(depCols)).gte("date", y0).lte("date", y1)
       .order("date", { ascending: false }).order("created_at", { ascending: false })),
     inEsp(db.from("sources_revenu").select("id,nom,couleur,ordre")).order("ordre").order("created_at"),
@@ -618,6 +640,7 @@ async function load(silent) {
     recError ? { data: [] } : db.from("recurrences").select("id,montant,categorie_id,note,jour,tous_les_mois,mois,debut,created_at" + (espOn ? ",espace_id" : "")).order("created_at"),
   ]);
   if (loadedEsp !== espId) return;   // l'espace a changé pendant le chargement
+  if (!budgetError && c.error && /budget/i.test(c.error.message || "")) { budgetError = true; return load(silent); }  // base pas encore en v7
   // base pas encore passée en v4 : on continue sans les récurrences
   if (!recError && (rc.error || (d.error && /recurrence/i.test(d.error.message || "")))) { recError = true; return load(silent); }
   if (c.error || d.error) {
@@ -640,7 +663,7 @@ async function load(silent) {
     await db.from("sources_revenu").insert(withEsp(defaults));
     return load(true);
   }
-  cats = c.data;
+  cats = c.data.map(x => ({ ...x, budget: x.budget == null ? null : Number(x.budget) }));
   // listes triées par date croissante (puis ordre de saisie), quel que soit l'ordre de saisie
   const byDate = (a, b) => a.date.localeCompare(b.date) || String(a.created_at || "").localeCompare(String(b.created_at || ""));
   rows = d.data.map(x => ({ ...x, montant: Number(x.montant) })).sort(byDate);
@@ -738,6 +761,7 @@ function render() {
   if (current === "chart") renderChart();
   if (current === "prop") renderProp();
   if (current === "prev") renderPrev(months);
+  if (current === "apercu") renderApercu(months);
   if (current === "bilan") renderBilan();
   if (!$("sheet-set").classList.contains("hidden")) renderSettings();
   applyMask();
@@ -908,11 +932,11 @@ function renderChart() {
 }
 
 // Feuille : dépenses d'une catégorie sur la période affichée
-function openCatList(id) {
+function openCatList(id, month = fMonth) {
   const c = catOf(id);
-  const its = rows.filter(r => r.categorie_id === id && (fMonth == null || mOf(r) === fMonth));
+  const its = rows.filter(r => r.categorie_id === id && (month == null || mOf(r) === month));
   $("cl-title").innerHTML = `<span class="chip"><span class="dot" style="background:${colorVar(c)}"></span>${esc(c.nom)}</span>`;
-  $("cl-sub").textContent = `${fMonth == null ? "Année " + year : cap(MONTHS[fMonth]) + " " + year} · ${its.length} dépense${its.length > 1 ? "s" : ""} · ${eur.format(sum(its.map(r => r.montant)))}`;
+  $("cl-sub").textContent = `${month == null ? "Année " + year : cap(MONTHS[month]) + " " + year} · ${its.length} dépense${its.length > 1 ? "s" : ""} · ${eur.format(sum(its.map(r => r.montant)))}`;
   $("cl-items").innerHTML = its.length ? its.map(r => itemHTML(r)).join("") : `<div class="item" style="color:var(--muted)">Aucune dépense</div>`;
   openSheet("sheet-cl");
 }
@@ -973,8 +997,9 @@ function renderPrev(months) {
   const el = $("view-prev");
   const now = new Date(), cm = now.getMonth(), cy = now.getFullYear();
   const past = months.slice(0, cm).map((m, i) => ({ ...m, i })).filter(m => m.items.length);
+  const back = `<div style="margin:0 16px 10px"><button type="button" class="ap-link" data-tab-go="apercu">${I.chevL} Aperçu</button></div>`;
   if (!past.length) {
-    el.innerHTML = `<div class="card"><h2>Prévision ${MONTHS[cm]} ${cy}</h2>
+    el.innerHTML = back + `<div class="card"><h2>Prévision ${MONTHS[cm]} ${cy}</h2>
       <p class="sub">La prévision se calcule à partir des mois précédents de l'année. Il faut au moins un mois terminé avec des dépenses : elle apparaîtra ${cm < 11 ? "en " + MONTHS[cm + 1] : "l'an prochain à partir de février"}.</p></div>`;
     return;
   }
@@ -986,7 +1011,7 @@ function renderPrev(months) {
     .filter(x => x.prev > 0 || x.spent > 0).sort((a, b) => b.prev - a.prev);
   const range = past.length === 1 ? MONTHS[past[0].i] : `${MONTHS_SHORT[past[0].i]} à ${MONTHS_SHORT[past[past.length - 1].i]}`;
   const reste = prev - spent;
-  el.innerHTML = `
+  el.innerHTML = back + `
     <div class="card">
       <div class="sub row-between"><span>Prévision ${MONTHS[cm]} ${cy}</span><button type="button" class="mask-btn" aria-label="Masquer les montants"></button></div>
       <div class="big">${eur.format(prev)}</div>
@@ -1032,6 +1057,135 @@ function renderPrev(months) {
       scales: scales(false, tickEur),
     },
   });
+}
+
+// ---------- Aperçu : le mois en cours en un coup d'œil ----------
+let prevCache = { key: null, rows: null };
+function renderApercu(months) {
+  const el = $("view-apercu");
+  const now = new Date(), cy = now.getFullYear(), cm = now.getMonth(), today = now.getDate();
+  if (year !== cy) { el.innerHTML = ""; return; }
+  const m = months[cm];
+  const toDate = (list, d) => list.filter(r => dOf(r) <= d);
+  // mois précédent (même espace) — en janvier, il faut aller chercher décembre de l'année d'avant
+  let pm = cm - 1, py = cy; if (pm < 0) { pm = 11; py--; }
+  let pRows = null;
+  if (cm > 0) pRows = rows.filter(r => mOf(r) === pm);
+  else {
+    const key = espId + ":" + py;
+    if (prevCache.key === key) pRows = prevCache.rows;
+    else {
+      prevCache = { key, rows: null };
+      inEsp(db.from("depenses").select("date,montant,categorie_id")).gte("date", `${py}-12-01`).lte("date", `${py}-12-31`)
+        .then(({ data }) => { if (prevCache.key === key) { prevCache.rows = (data || []).map(r => ({ ...r, montant: Number(r.montant) })); if (current === "apercu") renderApercu(byMonth()); } });
+    }
+  }
+  const pDay = Math.min(today, daysIn(py, pm));
+  const spentToDate = sum(toDate(m.items, today).map(r => r.montant));
+  const pToDate = pRows ? sum(toDate(pRows, pDay).map(r => r.montant)) : 0;
+  const delta = pRows && pToDate > 0 ? (spentToDate - pToDate) / pToDate * 100 : null;
+  const fc = forecastFor(months, cm);
+  const ratio = fc ? m.total / fc : 0;
+  const tRev = sum(revRows.filter(r => mOf(r) === cm).map(r => r.montant));
+  const fmtDelta = (d) => (d >= 0 ? "+" : "−") + Math.abs(Math.round(d)) + " %";
+
+  // catégories : dépensé ce mois, budget, évolution
+  const list = catsInData().map(c => {
+    const v = m.cats[c.id] || 0;
+    const pc = pRows ? sum(toDate(pRows, pDay).filter(r => r.categorie_id === c.id).map(r => r.montant)) : 0;
+    const vc = sum(toDate(m.items, today).filter(r => r.categorie_id === c.id).map(r => r.montant));
+    const d = pc > 0 ? (vc - pc) / pc * 100 : null;
+    return { c, v, b: c.budget || null, d: d != null && Math.abs(d) >= 10 ? d : null };
+  }).filter(x => x.v > 0 || x.b).sort((a, b) => (!!b.b - !!a.b) || b.v - a.v);
+  const anyBudget = list.some(x => x.b);
+  const recent = [...m.items].sort((a, b) => b.date.localeCompare(a.date) || String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 3);
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="row-between"><span class="ap-month">${MONTHS[cm]} ${cy}</span><button type="button" class="mask-btn" aria-label="Masquer les montants"></button></div>
+      <div class="sub" style="margin-top:6px">Dépensé ce mois-ci</div>
+      <div class="big">${eur.format(m.total)}</div>
+      ${fc ? `<div class="progress ${ratio > 1 ? "over" : ""}" style="height:8px"><i style="width:${Math.min(100, ratio * 100)}%"></i></div>` : ""}
+      <div class="ap-rows">
+        ${fc ? `<div class="kv"><span>Prévision du mois</span><b>${eur.format(fc)}</b></div>` : ""}
+        ${delta != null ? `<div class="kv"><span>Par rapport au ${pDay} ${MONTHS[pm]}</span><b>${fmtDelta(delta)}</b></div>` : ""}
+        ${tRev ? `<div class="kv"><span>Il reste (revenus − dépenses)</span><b class="${sign(tRev - m.total)}">${signed(tRev - m.total)}</b></div>` : ""}
+      </div>
+      ${fc ? `<div style="margin-top:10px"><button type="button" class="ap-link" data-tab-go="prev">Détail de la prévision ${I.chevR}</button></div>` : ""}
+    </div>
+
+    ${list.length ? `<div class="card">
+      <div class="card-head"><h2>${anyBudget ? "Budgets et catégories" : "Catégories du mois"}</h2></div>
+      ${list.map(x => {
+        const pct = x.b ? x.v / x.b : 0;
+        return `<div class="bud" data-apcat="${x.c.id}">
+          <div class="bud-top"><span class="chip"><span class="dot" style="background:${colorVar(x.c)}"></span>${esc(x.c.nom)}</span>
+            <b>${eur.format(x.v)}${x.b ? ` <span class="of">/ ${eur0.format(x.b)}</span>` : ""}</b></div>
+          ${x.b ? `<div class="progress ${pct >= 1 ? "over" : pct >= 0.85 ? "warn" : ""}"><i style="width:${Math.min(100, pct * 100)}%"></i></div>` : ""}
+          ${x.b || x.d != null ? `<div class="bud-sub">
+            <span>${x.b ? (pct >= 1 ? `<span class="over">Dépassé de ${eur.format(x.v - x.b)}</span>` : `Reste ${eur.format(x.b - x.v)}`) : ""}</span>
+            <span>${x.d != null ? fmtDelta(x.d) + " vs " + MONTHS_SHORT[pm] : ""}</span></div>` : ""}
+        </div>`;
+      }).join("")}
+      ${!anyBudget ? `<div class="sync" style="margin-top:10px">Astuce : fixe un budget mensuel sur une catégorie dans Réglages.</div>` : ""}
+    </div>` : ""}
+
+    <div class="card">
+      <div class="card-head"><h2>Dernières dépenses</h2>${recent.length ? `<button type="button" data-tab-go="list" data-month="${cm}">Tout voir</button>` : ""}</div>
+      ${recent.length ? `<div class="items-flat">${recent.map(r => itemHTML(r)).join("")}</div>`
+        : `<p class="sub" style="margin:0">Aucune dépense ce mois-ci. Appuie sur + pour commencer.</p>`}
+    </div>`;
+}
+$("view-apercu").addEventListener("click", (e) => {
+  const c = e.target.closest("[data-apcat]");
+  if (c) { openCatList(c.dataset.apcat, new Date().getMonth()); return; }
+  onItemClick(e);
+});
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-tab-go]"); if (!b) return;
+  if (b.dataset.month != null) { fMonth = Number(b.dataset.month); openMonths.add(fMonth); }
+  tab(b.dataset.tabGo);
+});
+
+// ---------- Saisie depuis un raccourci iPhone (Apple Pay, Siri) ----------
+// Adresse : …/?ajout=1&espace=Famille&montant=42,80&note=LECLERC
+function parseAmount(t) {
+  let x = String(t || "").replace(/[^\d.,-]/g, "");
+  if (x.includes(",") && x.includes(".")) x = x.lastIndexOf(",") > x.lastIndexOf(".") ? x.replace(/\./g, "").replace(",", ".") : x.replace(/,/g, "");
+  else x = x.replace(",", ".");
+  const n = Number(x); return n > 0 ? Math.round(n * 100) / 100 : null;
+}
+// Catégorie apprise : même commerçant déjà classé, sinon même premier mot ; jamais devinée au hasard
+function guessCat(note) {
+  const t = String(note || "").trim().toLowerCase(); if (!t) return null;
+  const ok = (e) => e && cats.some(c => c.id === e.cat);
+  const exact = noteIdx.get(t); if (ok(exact)) return exact.cat;
+  const word = (t.match(/[a-zà-ÿ0-9]{3,}/) || [])[0]; if (!word) return null;
+  const cands = [...noteIdx.values()].filter(e => ok(e) && e.note.toLowerCase().includes(word));
+  if (!cands.length) return null;
+  const votes = {}; for (const e of cands) votes[e.cat] = (votes[e.cat] || 0) + e.n;
+  return Object.entries(votes).sort((a, b) => b[1] - a[1])[0][0];
+}
+async function handleLink() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has("ajout")) return;
+  history.replaceState(null, "", location.pathname);   // évite un 2e ajout si on recharge la page
+  const wanted = (q.get("espace") || "").trim().toLowerCase();
+  if (wanted && espOn) {
+    const e = espaces.find(x => x.nom.toLowerCase() === wanted);
+    if (!e) toast(`Espace « ${q.get("espace")} » introuvable`);
+    else if (e.id !== espId) { await switchEspace(e.id); if (espId !== e.id) return; }
+  }
+  const montant = parseAmount(q.get("montant")), note = (q.get("note") || "").trim();
+  if (current === "bilan") tab("apercu");
+  openForm(null, "dep");
+  if (montant) $("f-montant").value = montant.toFixed(2).replace(".", ",");
+  if (note) $("f-note").value = note;
+  const g = guessCat(note);
+  selCat = g; catTouched = !!g; drawFormCats(); drawSugg();
+  if (!g) {
+    $("f-cat-label").innerHTML = `Catégorie · <span style="color:var(--accent);font-weight:600">à choisir</span>${note ? ` (elle sera retenue pour « ${esc(note)} »)` : ""}`;
+  }
 }
 
 // ---------- Bilan du mois ----------
@@ -1160,22 +1314,22 @@ async function copyPrevRevenus(py, pm) {
 }
 
 // ---------- Navigation ----------
-const TITLES = { list: "Historique", chart: "Graphique", prop: "Proportions", prev: "Prévision", bilan: "Bilan du mois" };
+const TITLES = { apercu: "Aperçu", list: "Historique", chart: "Graphique", prop: "Proportions", prev: "Prévision", bilan: "Bilan du mois" };
 function tab(name) {
   current = name;
   for (const t of Object.keys(TITLES)) {
     $("view-" + t).classList.toggle("hidden", t !== name);
-    $("tab-" + t).classList.toggle("on", t === name);
+    const b = $("tab-" + t); if (b) b.classList.toggle("on", t === name || (t === "apercu" && name === "prev"));
   }
   $("title").textContent = TITLES[name];
-  const own = name === "prev" || name === "bilan";
+  const own = name === "prev" || name === "bilan" || name === "apercu";
   $("year-nav").classList.toggle("off", own);
   $("total-card").classList.toggle("hidden", own);
   $("add").classList.toggle("rev", name === "bilan");
   $("add").setAttribute("aria-label", name === "bilan" ? "Ajouter un revenu" : "Ajouter une dépense");
   window.scrollTo(0, 0);
   const cy = new Date().getFullYear();
-  if (name === "prev" && year !== cy) { year = cy; load(); } else render();
+  if ((name === "prev" || name === "apercu") && year !== cy) { year = cy; load(); } else render();
 }
 document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => tab(b.dataset.tab)));
 $("y-prev").onclick = () => { year--; load(); };
@@ -1242,7 +1396,7 @@ function openForm(row, kind = "dep") {
   formKind = kind; editing = row || null;
   const K = KINDS[kind], dep = kind === "dep";
   $("form-title").textContent = row ? (dep ? "Modifier la dépense" : "Modifier le revenu") : (dep ? "Nouvelle dépense" : "Nouveau revenu");
-  $("f-cat-label").textContent = dep ? "Catégorie" : "Source";
+  $("f-cat-label").textContent = dep ? "Catégorie" : "Source";   // (réinitialise l'indication « à choisir »)
   $("f-note").placeholder = dep ? "ex. Leclerc, loyer…" : "ex. salaire octobre, prime…";
   $("delete").textContent = dep ? "Supprimer cette dépense" : "Supprimer ce revenu";
   $("f-montant").value = row ? String(row.montant).replace(".", ",") : "";
@@ -1251,7 +1405,7 @@ function openForm(row, kind = "dep") {
   const list = K.list(), last = localStorage.getItem("last-" + kind);
   selCat = row ? row[K.fk] : (list.some(c => c.id === last) ? last : list[0]?.id);
   $("delete").classList.toggle("hidden", !row);
-  $("form-err").textContent = "";
+  $("form-err").textContent = ""; $("form-err").style.color = "";
   catTouched = false;
   const fe = espOf();
   $("form-esp").classList.toggle("hidden", !espOn || espaces.length < 2 || !fe);
@@ -1470,6 +1624,8 @@ function openCat(cat, kind) {
   if (cat) selColor = cat.couleur;
   else { const used = new Set(list.map(c => c.couleur)); selColor = [...Array(NB_COLORS).keys()].find(i => !used.has(i)) ?? (list.length % NB_COLORS); }
   $("c-delete").textContent = "Supprimer cette " + K.word;
+  $("c-budget-box").classList.toggle("hidden", kind !== "dep" || budgetError);
+  $("c-budget").value = cat && cat.budget ? String(cat.budget).replace(".", ",") : "";
   $("c-delete").classList.toggle("hidden", !cat || list.length <= 1);
   $("c-move").classList.add("hidden");
   $("cat-err").textContent = "";
@@ -1484,10 +1640,17 @@ $("cat-form").addEventListener("submit", async (e) => {
   const nom = $("c-nom").value.trim();
   if (!nom) { $("cat-err").textContent = "Donne un nom."; return; }
   if (list.some(c => c.nom.toLowerCase() === nom.toLowerCase() && c.id !== editingCat?.id)) { $("cat-err").textContent = "Ce nom existe déjà."; return; }
+  const payload = { nom, couleur: selColor };
+  if (catKind === "dep" && !budgetError) {
+    const t = $("c-budget").value.replace(/[\s€]/g, "").replace(",", ".");
+    const b = t ? Number(t) : null;
+    if (t && !(b > 0)) { $("cat-err").textContent = "Budget invalide (laisse vide pour aucun budget)."; return; }
+    payload.budget = b ? Math.round(b * 100) / 100 : null;
+  }
   $("c-save").disabled = true;
   const res = editingCat
-    ? await db.from(K.table).update({ nom, couleur: selColor }).eq("id", editingCat.id).select().single()
-    : await db.from(K.table).insert(withEsp({ nom, couleur: selColor, ordre: Math.max(-1, ...list.map(c => c.ordre)) + 1 })).select().single();
+    ? await db.from(K.table).update(payload).eq("id", editingCat.id).select().single()
+    : await db.from(K.table).insert(withEsp({ ...payload, ordre: Math.max(-1, ...list.map(c => c.ordre)) + 1 })).select().single();
   $("c-save").disabled = false;
   if (res.error) {
     $("cat-err").textContent = /check/i.test(res.error.message || "") && selColor >= 8
@@ -1495,7 +1658,7 @@ $("cat-form").addEventListener("submit", async (e) => {
       : "Échec de l'enregistrement (connexion internet ?).";
     return;
   }
-  const saved = res.data, i = list.findIndex(c => c.id === saved.id);
+  const saved = { ...res.data, budget: res.data.budget == null ? null : Number(res.data.budget) }, i = list.findIndex(c => c.id === saved.id);
   if (i >= 0) list[i] = saved; else list.push(saved);
   closeSheet("sheet-cat");
   toast(editingCat ? "Modifié" : (catKind === "dep" ? "Catégorie ajoutée" : "Source ajoutée"));
@@ -1652,7 +1815,7 @@ async function switchEspace(id) {
   fCat = null; rows = []; revRows = []; cats = []; sources = []; recs = []; noteIdx = new Map();
   applyEspace(); render();
   toast("Espace " + e.nom);
-  await load(); loadNotes();
+  await Promise.all([load(), loadNotes()]);
 }
 // Code : empreinte SHA-256 (le code n'est jamais enregistré en clair)
 async function codeHash(espaceId, code) {
