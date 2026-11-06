@@ -47,6 +47,19 @@
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
   .hidden { display: none !important; }
   .ic { width: 1em; height: 1em; vertical-align: -0.14em; flex: none; }
+  .esp-row { padding: 8px 16px 0; }
+  .esp-pill { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px 5px 9px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-size: 14px; font-weight: 600; }
+  .esp-pill .dot { background: var(--accent); }
+  .esp-pill .ic { width: 15px; height: 15px; }
+  .esp-item .ic.lock { width: 15px; height: 15px; color: var(--muted); }
+  .esp-item .ic.check { width: 20px; height: 20px; color: var(--accent); }
+  .form-esp { display: flex; align-items: center; gap: 6px; margin: -8px 0 4px; font-size: 13px; color: var(--text-2); }
+  .lock { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .lock-box { width: 100%; max-width: 340px; text-align: center; }
+  .lock-box .badge { width: 56px; height: 56px; border-radius: 28px; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; color: #fff; }
+  .lock-box .badge .ic { width: 26px; height: 26px; }
+  .lock-box h2 { margin: 0 0 6px; font-size: 22px; }
+  .lock-box input { text-align: center; letter-spacing: .5em; font-size: 26px; margin-top: 18px; }
   .row-between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .mask-btn { width: 30px; height: 30px; margin: -6px -6px -6px 0; border-radius: 15px; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .mask-btn .ic { width: 18px; height: 18px; }
@@ -236,6 +249,7 @@
 <!-- Application -->
 <section id="app" class="hidden">
   <header>
+    <div class="esp-row hidden" id="esp-row"><button type="button" class="esp-pill" id="esp-btn"><span class="dot"></span><span id="esp-name">Famille</span><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></div>
     <div class="hrow">
       <h1 id="title">Historique</h1>
       <div class="year" id="year-nav">
@@ -281,6 +295,7 @@
 <div class="sheet-bg hidden" id="sheet-exp">
   <form class="sheet" id="form">
     <h2><span id="form-title">Nouvelle dépense</span><button type="button" data-close="sheet-exp">Annuler</button></h2>
+    <div class="form-esp hidden" id="form-esp"></div>
     <label for="f-montant">Montant (€)</label>
     <input id="f-montant" class="amount" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off" required>
     <label for="f-note">Note (facultatif)</label>
@@ -309,7 +324,12 @@
 <div class="sheet-bg hidden" id="sheet-set">
   <div class="sheet">
     <h2><span>Réglages</span><button type="button" data-close="sheet-set">Fermer</button></h2>
-    <div class="section-title">Catégories de dépenses</div>
+    <div id="set-esp-block" class="hidden">
+      <div class="section-title">Espaces</div>
+      <div class="list" id="set-esps"></div>
+      <button class="secondary" id="set-add-esp" type="button">+ Ajouter un espace</button>
+    </div>
+    <div class="section-title" id="set-cats-title">Catégories de dépenses</div>
     <div class="list" id="set-cats"></div>
     <button class="secondary" id="set-add-cat" type="button">+ Ajouter une catégorie</button>
     <div id="set-rec-block">
@@ -378,6 +398,33 @@
   </div>
 </div>
 
+<!-- Choix de l'espace -->
+<div class="sheet-bg hidden" id="sheet-esp">
+  <div class="sheet">
+    <h2><span>Espaces</span><button type="button" data-close="sheet-esp">Fermer</button></h2>
+    <div class="list" id="esp-list"></div>
+    <button class="secondary" id="esp-add" type="button">+ Ajouter un espace</button>
+  </div>
+</div>
+
+<!-- Espace : ajout / modification -->
+<div class="sheet-bg hidden" id="sheet-espedit">
+  <form class="sheet" id="esp-form">
+    <h2><span id="ee-title">Nouvel espace</span><button type="button" data-close="sheet-espedit">Annuler</button></h2>
+    <label for="ee-nom">Nom</label>
+    <input id="ee-nom" type="text" maxlength="30" placeholder="ex. Quentin" autocomplete="off" required>
+    <label>Couleur</label>
+    <div class="swatches" id="ee-colors"></div>
+    <label for="ee-code">Code d'accès (facultatif)</label>
+    <input id="ee-code" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="4 à 6 chiffres" autocomplete="off">
+    <div class="sync" id="ee-code-info" style="margin-top:6px"></div>
+    <button class="del hidden" id="ee-code-del" type="button" style="margin-top:4px">Retirer le code</button>
+    <button class="primary" type="submit" id="ee-save">Enregistrer</button>
+    <button class="del hidden" id="ee-delete" type="button">Supprimer cet espace</button>
+    <div class="err" id="ee-err"></div>
+  </form>
+</div>
+
 <!-- Saisie rapide (appui long sur +) -->
 <div class="sheet-bg hidden" id="sheet-quick">
   <form class="sheet" id="quick-form">
@@ -396,6 +443,21 @@
     <input id="s-q" type="search" placeholder="Note ou catégorie (ex. Leclerc)" autocomplete="off" enterkeyhint="search" aria-label="Rechercher">
     <div class="tot-line" id="s-tot"></div>
     <div class="list" id="s-res"></div>
+  </div>
+</div>
+
+<!-- Code d'accès d'un espace -->
+<div class="lock hidden" id="lock">
+  <div class="lock-box">
+    <div class="badge" id="lock-badge"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
+    <h2 id="lock-title">Espace</h2>
+    <div class="sub">Entre le code de cet espace.</div>
+    <form id="lock-form">
+      <input id="lock-code" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" aria-label="Code">
+      <button class="primary" type="submit">Déverrouiller</button>
+    </form>
+    <div class="err" id="lock-err"></div>
+    <button class="linkbtn" id="lock-other" type="button"></button>
   </div>
 </div>
 
@@ -428,7 +490,7 @@ function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;
 
 let db, year = new Date().getFullYear(), current = "list";
 let rows = [], cats = [], revRows = [], sources = [], revError = false;
-let recs = [], recError = false, generating = false;
+let recs = [], recsAll = [], recError = false, generating = false;
 let repOn = false, repMode = "all", repMonths = new Set();
 let editingRec = null, rMode = "all", rMonths = new Set(), rCat = null;
 const MS = MONTHS_SHORT.map(m => m.replace(".", ""));
@@ -449,7 +511,15 @@ let atDate = null;                    // date choisie dans « Où en étions-nou
 let editing = null, formKind = "dep", selCat = null, catTouched = false;
 let noteIdx = new Map();   // note (minuscules) -> { note, cat, n, last }
 let editingCat = null, catKind = "dep", catFromForm = false, selColor = 0;
-const seeded = { dep: false, rev: false };
+const seeded = { dep: new Set(), rev: new Set() };
+// ---------- Espaces (Famille, Mathilde, …) ----------
+let espaces = [], espId = null, espOn = false;
+const unlocked = new Set();           // espaces déverrouillés pendant cette utilisation
+try { espId = localStorage.getItem("espace"); espaces = JSON.parse(localStorage.getItem("espaces") || "[]"); espOn = espaces.length > 0; } catch {}
+const espOf = (id = espId) => espaces.find(e => e.id === id);
+const inEsp = (q) => espOn ? q.eq("espace_id", espId) : q;
+const withEsp = (o) => !espOn ? o : Array.isArray(o) ? o.map(x => ({ ...x, espace_id: espId })) : { ...o, espace_id: espId };
+const isLocked = (e) => e && e.code_hash && !unlocked.has(e.id);
 const openMonths = new Set([new Date().getMonth()]);
 const charts = {};
 
@@ -497,10 +567,15 @@ function showApp() {
   load();
   loadNotes();
   const ch = db.channel("foyer-live");
-  for (const t of ["depenses", "categories", "revenus", "sources_revenu", "recurrences"])
+  for (const t of ["depenses", "categories", "revenus", "sources_revenu", "recurrences", "espaces"])
     ch.on("postgres_changes", { event: "*", schema: "public", table: t }, () => load(true));
   ch.subscribe();
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) load(true); });
+  let hiddenAt = 0;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (hiddenAt && Date.now() - hiddenAt > 120000) { unlocked.clear(); gate(); }
+    load(true);
+  });
 }
 
 $("login-form").addEventListener("submit", async (e) => {
@@ -525,21 +600,24 @@ async function fetchAll(build) {
   }
 }
 async function load(silent) {
-  const cacheKey = "cache-v3-" + year;
+  const cacheKey = "cache-v4-" + (espId || "x") + "-" + year;
   if (!silent) {
     try { const c = JSON.parse(localStorage.getItem(cacheKey) || "null"); if (c) { ({ cats, rows, sources, revRows } = c); recs = c.recs || []; render(); } } catch {}
   }
   const y0 = `${year}-01-01`, y1 = `${year}-12-31`;
+  await loadEspaces();
   const depCols = "id,date,montant,categorie_id,note,created_at" + (recError ? "" : ",recurrence_id");
+  const loadedEsp = espId;
   const [c, d, s, r, rc] = await Promise.all([
-    db.from("categories").select("id,nom,couleur,ordre").order("ordre").order("created_at"),
-    fetchAll(() => db.from("depenses").select(depCols).gte("date", y0).lte("date", y1)
+    inEsp(db.from("categories").select("id,nom,couleur,ordre")).order("ordre").order("created_at"),
+    fetchAll(() => inEsp(db.from("depenses").select(depCols)).gte("date", y0).lte("date", y1)
       .order("date", { ascending: false }).order("created_at", { ascending: false })),
-    db.from("sources_revenu").select("id,nom,couleur,ordre").order("ordre").order("created_at"),
-    fetchAll(() => db.from("revenus").select("id,date,montant,source_id,note,created_at").gte("date", y0).lte("date", y1)
+    inEsp(db.from("sources_revenu").select("id,nom,couleur,ordre")).order("ordre").order("created_at"),
+    fetchAll(() => inEsp(db.from("revenus").select("id,date,montant,source_id,note,created_at")).gte("date", y0).lte("date", y1)
       .order("date", { ascending: false }).order("created_at", { ascending: false })),
-    recError ? { data: [] } : db.from("recurrences").select("id,montant,categorie_id,note,jour,tous_les_mois,mois,debut,created_at").order("created_at"),
+    recError ? { data: [] } : db.from("recurrences").select("id,montant,categorie_id,note,jour,tous_les_mois,mois,debut,created_at" + (espOn ? ",espace_id" : "")).order("created_at"),
   ]);
+  if (loadedEsp !== espId) return;   // l'espace a changé pendant le chargement
   // base pas encore passée en v4 : on continue sans les récurrences
   if (!recError && (rc.error || (d.error && /recurrence/i.test(d.error.message || "")))) { recError = true; return load(silent); }
   if (c.error || d.error) {
@@ -547,15 +625,19 @@ async function load(silent) {
     $("sync").textContent = /categor/i.test(msg) ? "Base à mettre à jour : lance migration-v2.sql dans Supabase" : "Hors connexion : affichage de la dernière version";
     return;
   }
-  if (!c.data.length && !seeded.dep) {
-    seeded.dep = true;
-    await db.from("categories").insert([{ nom: "Fixe", couleur: 0, ordre: 0 }, { nom: "Courses", couleur: 1, ordre: 1 }]);
+  if (!c.data.length && !seeded.dep.has(espId)) {
+    seeded.dep.add(espId);
+    await db.from("categories").insert(withEsp([{ nom: "Fixe", couleur: 0, ordre: 0 }, { nom: "Courses", couleur: 1, ordre: 1 }]));
     return load(true);
   }
   revError = !!(s.error || r.error);
-  if (!revError && !s.data.length && !seeded.rev) {
-    seeded.rev = true;
-    await db.from("sources_revenu").insert([{ nom: "Salaire Quentin", couleur: 0, ordre: 0 }, { nom: "Salaire Mathilde", couleur: 6, ordre: 1 }]);
+  if (!revError && !s.data.length && !seeded.rev.has(espId)) {
+    seeded.rev.add(espId);
+    const e = espOf();
+    const defaults = !espOn || (e && e.nom === "Famille")
+      ? [{ nom: "Salaire Quentin", couleur: 0, ordre: 0 }, { nom: "Salaire Mathilde", couleur: 6, ordre: 1 }]
+      : [{ nom: "Salaire " + (e ? e.nom : ""), couleur: e ? e.couleur : 0, ordre: 0 }];
+    await db.from("sources_revenu").insert(withEsp(defaults));
     return load(true);
   }
   cats = c.data;
@@ -564,7 +646,8 @@ async function load(silent) {
   rows = d.data.map(x => ({ ...x, montant: Number(x.montant) })).sort(byDate);
   sources = revError ? [] : s.data;
   revRows = revError ? [] : r.data.map(x => ({ ...x, montant: Number(x.montant) })).sort(byDate);
-  recs = recError ? [] : rc.data.map(x => ({ ...x, montant: Number(x.montant), mois: x.mois || [] }));
+  recsAll = recError ? [] : rc.data.map(x => ({ ...x, montant: Number(x.montant), mois: x.mois || [] }));
+  recs = espOn ? recsAll.filter(x => x.espace_id === espId) : recsAll;
   const created = await generateRecurring();
   if (created) { toast(`${created} dépense${created > 1 ? "s" : ""} récurrente${created > 1 ? "s" : ""} ajoutée${created > 1 ? "s" : ""}`); return load(true); }
   try { localStorage.setItem(cacheKey, JSON.stringify({ cats, rows, sources, revRows, recs })); } catch {}
@@ -574,11 +657,11 @@ async function load(silent) {
 
 // Crée les dépenses récurrentes des mois arrivés (jamais à l'avance, jamais avant la création de la règle)
 async function generateRecurring() {
-  if (recError || generating || !recs.length) return 0;
+  if (recError || generating || !recsAll.length) return 0;
   generating = true;
   try {
     const now = new Date(), cur = mk(now.getFullYear(), now.getMonth());
-    const plan = recs.map(r => {
+    const plan = recsAll.map(r => {
       const d = new Date(r.debut + "T12:00:00"), c = new Date(r.created_at);
       return { r, start: Math.max(mk(d.getFullYear(), d.getMonth()) + 1, mk(c.getFullYear(), c.getMonth()), cur - 24) };
     });
@@ -593,7 +676,7 @@ async function generateRecurring() {
       const y = Math.floor(k / 12), m = k % 12;
       if (!r.tous_les_mois && !r.mois.includes(m + 1)) continue;
       if (have.has(r.id + ":" + k)) continue;
-      todo.push({ montant: r.montant, categorie_id: r.categorie_id, note: r.note, recurrence_id: r.id,
+      todo.push({ montant: r.montant, categorie_id: r.categorie_id, note: r.note, recurrence_id: r.id, ...(espOn ? { espace_id: r.espace_id } : {}),
         date: `${y}-${pad(m + 1)}-${pad(Math.min(r.jour, daysIn(y, m)))}` });
     }
     let n = 0;
@@ -1064,13 +1147,13 @@ $("view-bilan").addEventListener("click", (e) => {
 });
 async function copyPrevRevenus(py, pm) {
   const from = `${py}-${pad(pm + 1)}-01`, to = `${py}-${pad(pm + 1)}-${pad(daysIn(py, pm))}`;
-  const { data, error } = await db.from("revenus").select("date,montant,source_id,note").gte("date", from).lte("date", to);
+  const { data, error } = await inEsp(db.from("revenus").select("date,montant,source_id,note")).gte("date", from).lte("date", to);
   if (error) { toast("Échec (connexion internet ?)"); return; }
   if (!data.length) { toast(`Aucun revenu en ${MONTHS[pm]}`); return; }
   const dmax = daysIn(year, bMonth);
   const ins = data.map(r => ({ montant: r.montant, source_id: r.source_id, note: r.note,
     date: `${year}-${pad(bMonth + 1)}-${pad(Math.min(Number(r.date.slice(8, 10)), dmax))}` }));
-  const res = await db.from("revenus").insert(ins);
+  const res = await db.from("revenus").insert(withEsp(ins));
   if (res.error) { toast("Échec de la copie"); return; }
   toast(`${ins.length} revenu${ins.length > 1 ? "s" : ""} repris`);
   load(true);
@@ -1119,7 +1202,9 @@ function addNote(note, cat, date, fromDb) {
   if (!fromDb || date >= e.last) { e.cat = cat; e.last = date; }
 }
 async function loadNotes() {
-  const { data, error } = await db.from("depenses").select("note,categorie_id,date").not("note", "is", null).order("date", { ascending: false }).limit(1000);
+  const forEsp = espId;
+  const { data, error } = await inEsp(db.from("depenses").select("note,categorie_id,date")).not("note", "is", null).order("date", { ascending: false }).limit(1000);
+  if (forEsp !== espId) return;
   if (error) return;
   noteIdx = new Map();
   for (const r of data) addNote(r.note, r.categorie_id, r.date, true);
@@ -1168,6 +1253,9 @@ function openForm(row, kind = "dep") {
   $("delete").classList.toggle("hidden", !row);
   $("form-err").textContent = "";
   catTouched = false;
+  const fe = espOf();
+  $("form-esp").classList.toggle("hidden", !espOn || espaces.length < 2 || !fe);
+  if (fe) $("form-esp").innerHTML = `<span class="dot" style="background:${colorVar(fe)}"></span>Espace ${esc(fe.nom)}`;
   // Répéter (dépenses uniquement)
   $("f-rep-box").classList.toggle("hidden", !dep || recError);
   repOn = false; repMode = "all"; repMonths = new Set([Number($("f-date").value.slice(5, 7))]);
@@ -1231,7 +1319,7 @@ $("quick-form").addEventListener("submit", async (e) => {
   if (!(montant > 0)) { $("q-err").textContent = "Montant invalide."; return; }
   const c = quickCat();
   $("q-save").disabled = true;
-  const { error } = await db.from("depenses").insert({ montant: Math.round(montant * 100) / 100, categorie_id: c.id, date: todayISO(), note: null });
+  const { error } = await db.from("depenses").insert(withEsp({ montant: Math.round(montant * 100) / 100, categorie_id: c.id, date: todayISO(), note: null }));
   $("q-save").disabled = false;
   if (error) { $("q-err").textContent = "Échec de l'enregistrement (connexion internet ?)."; return; }
   closeSheet("sheet-quick"); toast(`${eur.format(montant)} ajouté dans ${c.nom}`);
@@ -1253,13 +1341,13 @@ $("form").addEventListener("submit", async (e) => {
   $("save").disabled = true;
   let newRec = null;
   if (withRep) {
-    const rr = await db.from("recurrences").insert({ montant: rec.montant, categorie_id: rec.categorie_id, note: rec.note,
+    const rr = await db.from("recurrences").insert(withEsp({ montant: rec.montant, categorie_id: rec.categorie_id, note: rec.note,
       jour: Number(rec.date.slice(8, 10)), tous_les_mois: repMode === "all", mois: repMode === "all" ? [] : [...repMonths].sort((a, b) => a - b),
-      debut: rec.date }).select().single();
+      debut: rec.date })).select().single();
     if (rr.error) { $("save").disabled = false; $("form-err").textContent = "Échec de la création de la récurrence."; return; }
     newRec = rr.data; rec.recurrence_id = newRec.id;
   }
-  const { error } = editing ? await db.from(K.fkTable).update(rec).eq("id", editing.id) : await db.from(K.fkTable).insert(rec);
+  const { error } = editing ? await db.from(K.fkTable).update(rec).eq("id", editing.id) : await db.from(K.fkTable).insert(withEsp(rec));
   $("save").disabled = false;
   if (error) {
     if (newRec) await db.from("recurrences").delete().eq("id", newRec.id);
@@ -1293,6 +1381,10 @@ function listHTML(list, kind) {
     <span class="main"><div class="t">${esc(c.nom)}</div></span><span class="chev">${I.chevR}</span></button>`).join("");
 }
 function renderSettings() {
+  $("set-esp-block").classList.toggle("hidden", !espOn);
+  if (espOn) $("set-esps").innerHTML = espaces.map(e => espItem(e, false)).join("");
+  const ce = espOf();
+  $("set-cats-title").textContent = "Catégories de dépenses" + (espOn && ce ? " · " + ce.nom : "");
   $("set-cats").innerHTML = listHTML(cats, "dep");
   $("set-rec-block").classList.toggle("hidden", recError);
   $("set-recs").innerHTML = recs.length ? recs.map(r => { const c = catOf(r.categorie_id);
@@ -1395,7 +1487,7 @@ $("cat-form").addEventListener("submit", async (e) => {
   $("c-save").disabled = true;
   const res = editingCat
     ? await db.from(K.table).update({ nom, couleur: selColor }).eq("id", editingCat.id).select().single()
-    : await db.from(K.table).insert({ nom, couleur: selColor, ordre: Math.max(-1, ...list.map(c => c.ordre)) + 1 }).select().single();
+    : await db.from(K.table).insert(withEsp({ nom, couleur: selColor, ordre: Math.max(-1, ...list.map(c => c.ordre)) + 1 })).select().single();
   $("c-save").disabled = false;
   if (res.error) {
     $("cat-err").textContent = /check/i.test(res.error.message || "") && selColor >= 8
@@ -1463,7 +1555,7 @@ async function doSearch() {
   if (q.length < 2) { $("s-tot").textContent = "Tape au moins 2 lettres."; $("s-res").innerHTML = ""; searchRows = []; return; }
   const safe = q.replace(/[%,()*\\]/g, " ").trim();
   const ids = cats.filter(c => c.nom.toLowerCase().includes(q.toLowerCase())).map(c => c.id);
-  let query = db.from("depenses").select("id,date,montant,categorie_id,note" + (recError ? "" : ",recurrence_id"));
+  let query = inEsp(db.from("depenses").select("id,date,montant,categorie_id,note" + (recError ? "" : ",recurrence_id")));
   query = ids.length ? query.or(`note.ilike.%${safe}%,categorie_id.in.(${ids.join(",")})`) : query.ilike("note", `%${safe}%`);
   const { data, error } = await query.order("date", { ascending: false }).limit(200);
   if (tok !== searchTok) return;
@@ -1484,19 +1576,21 @@ $("s-res").addEventListener("click", (e) => {
 $("export").addEventListener("click", async () => {
   const btn = $("export"); btn.disabled = true; btn.querySelector("span").textContent = "Préparation…";
   try {
+    const E = espOn ? ",espace_id" : "";
     const [c, d, s, r] = await Promise.all([
       db.from("categories").select("id,nom"),
-      fetchAll(() => db.from("depenses").select("date,montant,categorie_id,note").order("date")),
+      fetchAll(() => db.from("depenses").select("date,montant,categorie_id,note" + E).order("date")),
       revError ? { data: [] } : db.from("sources_revenu").select("id,nom"),
-      revError ? { data: [] } : fetchAll(() => db.from("revenus").select("date,montant,source_id,note").order("date")),
+      revError ? { data: [] } : fetchAll(() => db.from("revenus").select("date,montant,source_id,note" + E).order("date")),
     ]);
     if (c.error || d.error || s.error || r.error) throw new Error("lecture");
     const nameOf = (list, id) => (list.find(x => x.id === id) || {}).nom || "";
     const cell = (v) => { const t = String(v ?? ""); return /[;"\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
     const num = (n) => Number(n).toFixed(2).replace(".", ",");
-    const lines = ["Type;Date;Catégorie ou source;Montant;Note"];
-    for (const x of d.data) lines.push(["Dépense", x.date, nameOf(c.data, x.categorie_id), num(x.montant), x.note].map(cell).join(";"));
-    for (const x of r.data) lines.push(["Revenu", x.date, nameOf(s.data, x.source_id), num(x.montant), x.note].map(cell).join(";"));
+    const espName = (x) => espOn ? [nameOf(espaces, x.espace_id)] : [];
+    const lines = [[...(espOn ? ["Espace"] : []), "Type", "Date", "Catégorie ou source", "Montant", "Note"].join(";")];
+    for (const x of d.data) lines.push([...espName(x), "Dépense", x.date, nameOf(c.data, x.categorie_id), num(x.montant), x.note].map(cell).join(";"));
+    for (const x of r.data) lines.push([...espName(x), "Revenu", x.date, nameOf(s.data, x.source_id), num(x.montant), x.note].map(cell).join(";"));
     const name = `comptes-${todayISO()}.csv`;
     const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
     const file = new File([blob], name, { type: "text/csv" });
@@ -1509,6 +1603,171 @@ $("export").addEventListener("click", async () => {
   } catch { toast("Échec de l'export (connexion internet ?)"); }
   btn.disabled = false; btn.querySelector("span").textContent = "Exporter toutes les données (CSV)";
 });
+
+// ---------- Espaces : chargement, bascule, gestion, code ----------
+const I_LOCK = '<svg class="ic lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>', I_CHECK = '<svg class="ic check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+async function loadEspaces() {
+  const { data, error } = await db.from("espaces").select("id,nom,couleur,ordre,code_hash").order("ordre").order("created_at");
+  if (error) { espOn = false; espaces = []; applyEspace(); return; }
+  espOn = true; espaces = data;
+  if (!espaces.length) {
+    const r = await db.from("espaces").insert({ nom: "Famille", couleur: 0, ordre: 0 }).select().single();
+    if (!r.error) espaces = [r.data];
+  }
+  if (!espaces.some(e => e.id === espId)) espId = espaces[0]?.id || null;
+  try { localStorage.setItem("espace", espId); localStorage.setItem("espaces", JSON.stringify(espaces)); } catch {}
+  applyEspace(); gate();
+}
+// Couleur d'accent et nom de l'espace partout dans l'app
+function applyEspace() {
+  const e = espOn ? espOf() : null;
+  $("esp-row").classList.toggle("hidden", !e);
+  if (e) {
+    document.documentElement.style.setProperty("--accent", `var(--s${e.couleur})`);
+    $("esp-name").textContent = e.nom;
+  } else document.documentElement.style.removeProperty("--accent");
+}
+function espItem(e, picker) {
+  return `<button class="item esp-item" data-esp="${e.id}"><span class="dot" style="background:${colorVar(e)}"></span>
+    <span class="main"><div class="t">${esc(e.nom)}</div></span>${e.code_hash ? I_LOCK : ""}
+    ${picker && e.id === espId ? I_CHECK : `<span class="chev">${I.chevR}</span>`}</button>`;
+}
+$("esp-btn").onclick = () => { $("esp-list").innerHTML = espaces.map(e => espItem(e, true)).join(""); openSheet("sheet-esp"); };
+$("esp-list").addEventListener("click", (ev) => { const b = ev.target.closest("[data-esp]"); if (b) switchEspace(b.dataset.esp); });
+$("esp-add").onclick = () => { closeSheet("sheet-esp"); openEspEdit(null); };
+$("set-add-esp").onclick = () => openEspEdit(null);
+$("set-esps").addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-esp]"); if (!b) return;
+  const e = espOf(b.dataset.esp);
+  if (isLocked(e) && !(await askPin(e, "ask"))) return;
+  openEspEdit(e);
+});
+async function switchEspace(id) {
+  const e = espOf(id); if (!e) return;
+  if (isLocked(e) && !(await askPin(e, "ask"))) return;
+  closeSheet("sheet-esp");
+  if (id === espId) return;
+  espId = id;
+  try { localStorage.setItem("espace", id); } catch {}
+  fCat = null; rows = []; revRows = []; cats = []; sources = []; recs = []; noteIdx = new Map();
+  applyEspace(); render();
+  toast("Espace " + e.nom);
+  await load(); loadNotes();
+}
+// Code : empreinte SHA-256 (le code n'est jamais enregistré en clair)
+async function codeHash(espaceId, code) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(espaceId + ":" + code));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+let pinResolve = null, pinEsp = null, pinMode = "ask";
+function askPin(e, mode) {
+  pinEsp = e; pinMode = mode;
+  $("lock-title").textContent = "Espace " + e.nom;
+  $("lock-badge").style.background = colorVar(e);
+  document.querySelector("#lock-form .primary").style.background = colorVar(e);
+  $("lock-err").textContent = ""; $("lock-code").value = "";
+  const other = espaces.find(x => x.id !== e.id && !x.code_hash);
+  $("lock-other").textContent = mode === "gate" ? (other ? "Aller dans l'espace " + other.nom : "") : "Annuler";
+  $("lock-other").classList.toggle("hidden", mode === "gate" && !other);
+  $("lock").classList.remove("hidden");
+  $("lock-code").focus();
+  return new Promise(res => { pinResolve = res; });
+}
+function closePin(ok) { $("lock").classList.add("hidden"); const r = pinResolve; pinResolve = null; if (r) r(ok); }
+$("lock-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const code = $("lock-code").value.trim();
+  if (pinEsp && (await codeHash(pinEsp.id, code)) === pinEsp.code_hash) { unlocked.add(pinEsp.id); closePin(true); }
+  else { $("lock-err").textContent = "Code incorrect."; $("lock-code").value = ""; $("lock-code").focus(); }
+});
+$("lock-other").onclick = () => {
+  if (pinMode === "gate") {
+    const other = espaces.find(x => x.id !== pinEsp.id && !x.code_hash);
+    closePin(false); if (other) switchEspace(other.id);
+  } else closePin(false);
+};
+// À l'ouverture (ou après 2 min en arrière-plan) : l'espace courant protégé demande son code
+async function gate() {
+  const e = espOn ? espOf() : null;
+  if (!isLocked(e) || !$("lock").classList.contains("hidden")) return;
+  await askPin(e, "gate");
+}
+
+// Ajout / modification / suppression d'un espace
+let editingEsp = null, eColor = 0;
+function drawEspColors() {
+  $("ee-colors").innerHTML = Array.from({ length: NB_COLORS }, (_, i) =>
+    `<button type="button" data-col="${i}" class="${i === eColor ? "on" : ""}" style="background:var(--s${i})" aria-label="Couleur ${i + 1}"></button>`).join("");
+}
+$("ee-colors").addEventListener("click", (ev) => { const b = ev.target.closest("[data-col]"); if (b) { eColor = Number(b.dataset.col); drawEspColors(); } });
+function openEspEdit(e) {
+  editingEsp = e || null;
+  $("ee-title").textContent = e ? "Modifier l'espace" : "Nouvel espace";
+  $("ee-nom").value = e ? e.nom : "";
+  $("ee-code").value = "";
+  if (e) eColor = e.couleur;
+  else { const used = new Set(espaces.map(x => x.couleur)); eColor = [...Array(NB_COLORS).keys()].find(i => !used.has(i)) ?? 0; }
+  $("ee-code-info").textContent = e && e.code_hash
+    ? "Cet espace est protégé. Laisse vide pour garder le code actuel, ou tape un nouveau code pour le changer."
+    : "Laisse vide pour un accès libre. Le code évite les regards indiscrets dans l'app (ce n'est pas un chiffrement).";
+  $("ee-code-del").classList.toggle("hidden", !(e && e.code_hash));
+  $("ee-delete").classList.toggle("hidden", !e || espaces.length <= 1);
+  $("ee-err").textContent = "";
+  drawEspColors();
+  openSheet("sheet-espedit");
+  if (!e) $("ee-nom").focus();
+}
+$("esp-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const nom = $("ee-nom").value.trim(), code = $("ee-code").value.trim();
+  if (!nom) { $("ee-err").textContent = "Donne un nom à l'espace."; return; }
+  if (espaces.some(x => x.nom.toLowerCase() === nom.toLowerCase() && x.id !== editingEsp?.id)) { $("ee-err").textContent = "Ce nom existe déjà."; return; }
+  if (code && !/^\d{4,6}$/.test(code)) { $("ee-err").textContent = "Le code doit faire 4 à 6 chiffres."; return; }
+  $("ee-save").disabled = true;
+  let saved;
+  if (editingEsp) {
+    const upd = { nom, couleur: eColor };
+    if (code) upd.code_hash = await codeHash(editingEsp.id, code);
+    const r = await db.from("espaces").update(upd).eq("id", editingEsp.id).select().single();
+    if (r.error) { $("ee-save").disabled = false; $("ee-err").textContent = "Échec de l'enregistrement (connexion internet ?)."; return; }
+    saved = r.data;
+  } else {
+    const r = await db.from("espaces").insert({ nom, couleur: eColor, ordre: Math.max(-1, ...espaces.map(x => x.ordre)) + 1 }).select().single();
+    if (r.error) { $("ee-save").disabled = false; $("ee-err").textContent = "Échec de la création (connexion internet ?)."; return; }
+    saved = r.data;
+    if (code) {
+      const r2 = await db.from("espaces").update({ code_hash: await codeHash(saved.id, code) }).eq("id", saved.id).select().single();
+      if (!r2.error) saved = r2.data;
+    }
+  }
+  $("ee-save").disabled = false;
+  if (code) unlocked.add(saved.id);
+  const i = espaces.findIndex(x => x.id === saved.id);
+  if (i >= 0) espaces[i] = saved; else espaces.push(saved);
+  closeSheet("sheet-espedit");
+  if (!editingEsp) { toast("Espace « " + saved.nom + " » créé"); closeSheet("sheet-set"); switchEspace(saved.id); }
+  else { toast("Espace modifié"); applyEspace(); renderSettings(); }
+});
+$("ee-code-del").onclick = async () => {
+  if (!editingEsp || !confirm("Retirer le code de l'espace « " + editingEsp.nom + " » ?")) return;
+  const r = await db.from("espaces").update({ code_hash: null }).eq("id", editingEsp.id).select().single();
+  if (r.error) { $("ee-err").textContent = "Échec (connexion internet ?)."; return; }
+  const i = espaces.findIndex(x => x.id === r.data.id); if (i >= 0) espaces[i] = r.data;
+  editingEsp = r.data; closeSheet("sheet-espedit"); toast("Code retiré"); renderSettings();
+};
+$("ee-delete").onclick = async () => {
+  const e = editingEsp; if (!e) return;
+  if (!confirm(`Supprimer l'espace « ${e.nom} » avec TOUTES ses dépenses, revenus, catégories et récurrences ? C'est définitif.`)) return;
+  const typed = prompt(`Pour confirmer, tape le nom de l'espace : ${e.nom}`);
+  if (typed == null || typed.trim().toLowerCase() !== e.nom.toLowerCase()) { $("ee-err").textContent = "Suppression annulée."; return; }
+  const r = await db.from("espaces").delete().eq("id", e.id);
+  if (r.error) { $("ee-err").textContent = "Échec de la suppression (connexion internet ?)."; return; }
+  espaces = espaces.filter(x => x.id !== e.id);
+  closeSheet("sheet-espedit"); toast("Espace supprimé");
+  if (espId === e.id) { espId = null; const next = espaces.find(x => !x.code_hash) || espaces[0]; if (next) { closeSheet("sheet-set"); switchEspace(next.id); } }
+  else renderSettings();
+};
+applyEspace();
 
 // ---------- Flouter les montants ----------
 // Chaque montant en € affiché est entouré d'un <span class="amt">, flouté quand le mode est actif.
