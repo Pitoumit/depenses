@@ -51,7 +51,7 @@
   .esp-pill { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px 5px 9px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); font-size: 14px; font-weight: 600; }
   .esp-pill .dot { background: var(--accent); }
   .esp-pill .ic { width: 15px; height: 15px; }
-  .esp-item .ic.lock { width: 15px; height: 15px; color: var(--muted); }
+  .esp-item .ic.padlock { width: 15px; height: 15px; color: var(--muted); }
   .esp-item .ic.check { width: 20px; height: 20px; color: var(--accent); }
   .form-esp { display: flex; align-items: center; gap: 6px; margin: -8px 0 4px; font-size: 13px; color: var(--text-2); }
   .lock { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; }
@@ -59,6 +59,8 @@
   .lock-box .badge { width: 56px; height: 56px; border-radius: 28px; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; color: #fff; }
   .lock-box .badge .ic { width: 26px; height: 26px; }
   .lock-box h2 { margin: 0 0 6px; font-size: 22px; }
+  @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
+  .lock-box.shake { animation: shake .35s ease; }
   .lock-box input { text-align: center; letter-spacing: .5em; font-size: 26px; margin-top: 18px; }
   .ap-month { font-size: 13px; color: var(--text-2); text-transform: capitalize; }
   .ap-rows .kv { margin-top: 8px; }
@@ -218,8 +220,10 @@
   .mgrid button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
   .rep .sync { margin-top: 8px; }
   .sheet { width: 100%; background: var(--surface); border-radius: 18px 18px 0 0;
-    padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 92vh; overflow: auto; }
-  .sheet h2 { margin: 0 0 14px; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
+    padding: 0 16px calc(18px + env(safe-area-inset-bottom)); overflow: auto; overscroll-behavior: contain;
+    max-height: calc(100vh - env(safe-area-inset-top) - 24px); max-height: calc(100dvh - env(safe-area-inset-top) - 24px); }
+  .sheet h2 { margin: 0 -16px 14px; padding: 18px 16px 10px; font-size: 18px; display: flex; justify-content: space-between; align-items: center;
+    position: sticky; top: 0; z-index: 2; background: var(--surface); }
   .sheet h2 button { color: var(--accent); font-size: 16px; font-weight: 400; }
   label { display: block; font-size: 13px; color: var(--text-2); margin: 12px 0 6px; }
   input, select { width: 100%; font: inherit; font-size: 17px; padding: 12px; border-radius: 10px;
@@ -463,7 +467,7 @@
     <label>Couleur</label>
     <div class="swatches" id="ee-colors"></div>
     <label for="ee-code">Code d'accès (facultatif)</label>
-    <input id="ee-code" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="4 à 6 chiffres" autocomplete="off">
+    <input id="ee-code" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="4 chiffres" autocomplete="off">
     <div class="sync" id="ee-code-info" style="margin-top:6px"></div>
     <button class="del hidden" id="ee-code-del" type="button" style="margin-top:4px">Retirer le code</button>
     <button class="primary" type="submit" id="ee-save">Enregistrer</button>
@@ -1866,7 +1870,7 @@ $("export").addEventListener("click", async () => {
 });
 
 // ---------- Espaces : chargement, bascule, gestion, code ----------
-const I_LOCK = '<svg class="ic lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>', I_CHECK = '<svg class="ic check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const I_LOCK = '<svg class="ic padlock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>', I_CHECK = '<svg class="ic check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 async function loadEspaces() {
   const { data, error } = await db.from("espaces").select("id,nom,couleur,ordre,code_hash").order("ordre").order("created_at");
   if (error) { espOn = false; espaces = []; applyEspace(); return; }
@@ -1916,9 +1920,16 @@ async function switchEspace(id) {
   await Promise.all([load(), loadNotes()]);
 }
 // Code : empreinte SHA-256 (le code n'est jamais enregistré en clair)
-async function codeHash(espaceId, code) {
+async function codeHashRaw(espaceId, code) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(espaceId + ":" + code));
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+// Nouveaux codes : 4 chiffres, empreinte marquée « 4$ » (permet le déverrouillage automatique au 4e chiffre).
+// Les anciens codes (4 à 6 chiffres, sans marque) restent valables.
+async function codeHash(espaceId, code) { return "4$" + await codeHashRaw(espaceId, code); }
+async function checkCode(e, code) {
+  const h = e.code_hash || "";
+  return h.startsWith("4$") ? (await codeHash(e.id, code)) === h : (await codeHashRaw(e.id, code)) === h;
 }
 let pinResolve = null, pinEsp = null, pinMode = "ask";
 function askPin(e, mode) {
@@ -1927,6 +1938,7 @@ function askPin(e, mode) {
   $("lock-badge").style.background = colorVar(e);
   document.querySelector("#lock-form .primary").style.background = colorVar(e);
   $("lock-err").textContent = ""; $("lock-code").value = "";
+  $("lock-code").maxLength = (e.code_hash || "").startsWith("4$") ? 4 : 6;
   const other = espaces.find(x => x.id !== e.id && !x.code_hash);
   $("lock-other").textContent = mode === "gate" ? (other ? "Aller dans l'espace " + other.nom : "") : "Annuler";
   $("lock-other").classList.toggle("hidden", mode === "gate" && !other);
@@ -1935,12 +1947,32 @@ function askPin(e, mode) {
   return new Promise(res => { pinResolve = res; });
 }
 function closePin(ok) { $("lock").classList.add("hidden"); const r = pinResolve; pinResolve = null; if (r) r(ok); }
-$("lock-form").addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  const code = $("lock-code").value.trim();
-  if (pinEsp && (await codeHash(pinEsp.id, code)) === pinEsp.code_hash) { unlocked.add(pinEsp.id); closePin(true); }
-  else { $("lock-err").textContent = "Code incorrect."; $("lock-code").value = ""; $("lock-code").focus(); }
+function pinWrong() {
+  $("lock-err").textContent = "Code incorrect.";
+  $("lock-code").value = "";
+  const box = document.querySelector(".lock-box"); box.classList.remove("shake"); void box.offsetWidth; box.classList.add("shake");
+  $("lock-code").focus();
+}
+let pinChecking = false;
+async function tryPin(final) {
+  if (!pinEsp || pinChecking) return;
+  const code = $("lock-code").value.replace(/\D/g, "");
+  const marked = (pinEsp.code_hash || "").startsWith("4$");
+  if (code.length < 4) { if (final) pinWrong(); return; }
+  pinChecking = true;
+  const ok = await checkCode(pinEsp, code);
+  pinChecking = false;
+  if (ok) { unlocked.add(pinEsp.id); closePin(true); return; }
+  // code à 4 chiffres : faux dès le 4e chiffre ; ancien code (jusqu'à 6) : faux au 6e ou sur « Déverrouiller »
+  if (final || (marked && code.length >= 4) || code.length >= 6) pinWrong();
+}
+$("lock-code").addEventListener("input", () => {
+  const v = $("lock-code").value.replace(/\D/g, "");
+  if (v !== $("lock-code").value) $("lock-code").value = v;
+  if (v.length) $("lock-err").textContent = "";
+  tryPin(false);
 });
+$("lock-form").addEventListener("submit", (ev) => { ev.preventDefault(); tryPin(true); });
 $("lock-other").onclick = () => {
   if (pinMode === "gate") {
     const other = espaces.find(x => x.id !== pinEsp.id && !x.code_hash);
@@ -1969,8 +2001,8 @@ function openEspEdit(e) {
   if (e) eColor = e.couleur;
   else { const used = new Set(espaces.map(x => x.couleur)); eColor = [...Array(NB_COLORS).keys()].find(i => !used.has(i)) ?? 0; }
   $("ee-code-info").textContent = e && e.code_hash
-    ? "Cet espace est protégé. Laisse vide pour garder le code actuel, ou tape un nouveau code pour le changer."
-    : "Laisse vide pour un accès libre. Le code évite les regards indiscrets dans l'app (ce n'est pas un chiffrement).";
+    ? "Cet espace est protégé. Laisse vide pour garder le code actuel, ou tape un nouveau code à 4 chiffres pour le changer."
+    : "Laisse vide pour un accès libre. Le code (4 chiffres) évite les regards indiscrets dans l'app (ce n'est pas un chiffrement).";
   $("ee-code-del").classList.toggle("hidden", !(e && e.code_hash));
   $("ee-delete").classList.toggle("hidden", !e || espaces.length <= 1);
   $("ee-err").textContent = "";
@@ -1983,7 +2015,7 @@ $("esp-form").addEventListener("submit", async (ev) => {
   const nom = $("ee-nom").value.trim(), code = $("ee-code").value.trim();
   if (!nom) { $("ee-err").textContent = "Donne un nom à l'espace."; return; }
   if (espaces.some(x => x.nom.toLowerCase() === nom.toLowerCase() && x.id !== editingEsp?.id)) { $("ee-err").textContent = "Ce nom existe déjà."; return; }
-  if (code && !/^\d{4,6}$/.test(code)) { $("ee-err").textContent = "Le code doit faire 4 à 6 chiffres."; return; }
+  if (code && !/^\d{4}$/.test(code)) { $("ee-err").textContent = "Le code doit faire 4 chiffres."; return; }
   $("ee-save").disabled = true;
   let saved;
   if (editingEsp) {
