@@ -54,7 +54,7 @@
   .esp-item .ic.padlock { width: 15px; height: 15px; color: var(--muted); }
   .esp-item .ic.check { width: 20px; height: 20px; color: var(--accent); }
   .form-esp { display: flex; align-items: center; gap: 6px; margin: -8px 0 4px; font-size: 13px; color: var(--text-2); }
-  .lock { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .lock { position: fixed; left: 0; right: 0; top: var(--vvt, 0px); height: var(--vvh, 100%); z-index: 50; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; }
   .lock-box { width: 100%; max-width: 340px; text-align: center; }
   .lock-box .badge { width: 56px; height: 56px; border-radius: 28px; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; color: #fff; }
   .lock-box .badge .ic { width: 26px; height: 26px; }
@@ -189,7 +189,7 @@
   .fab.held { transform: scale(1.14); }
   .fab.rev { background: var(--good); }
 
-  .sheet-bg { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; animation: fadein .2s ease-out; }
+  .sheet-bg { position: fixed; left: 0; right: 0; top: var(--vvt, 0px); height: var(--vvh, 100%); z-index: 20; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; animation: fadein .2s ease-out; }
   .sheet-bg > .sheet { animation: slideup .28s cubic-bezier(.2,.8,.2,1); }
   #sheet-search, #sheet-cl { z-index: 19; }
   @keyframes fadein { from { background: rgba(0,0,0,0); } }
@@ -221,7 +221,8 @@
   .rep .sync { margin-top: 8px; }
   .sheet { width: 100%; background: var(--surface); border-radius: 18px 18px 0 0;
     padding: 0 16px calc(18px + env(safe-area-inset-bottom)); overflow: auto; overscroll-behavior: contain;
-    max-height: calc(100vh - env(safe-area-inset-top) - 24px); max-height: calc(100dvh - env(safe-area-inset-top) - 24px); }
+    max-height: calc(100vh - env(safe-area-inset-top) - 24px); max-height: calc(var(--vvh, 100dvh) - env(safe-area-inset-top) - 24px); }
+  body.kb .sheet { padding-bottom: 14px; max-height: calc(var(--vvh, 100dvh) - 12px); }
   .sheet h2 { margin: 0 -16px 14px; padding: 18px 16px 10px; font-size: 18px; display: flex; justify-content: space-between; align-items: center;
     position: sticky; top: 0; z-index: 2; background: var(--surface); }
   .sheet h2 button { color: var(--accent); font-size: 16px; font-weight: 400; }
@@ -612,7 +613,7 @@ async function init() {
 }
 function showLogin() {
   $("app").classList.add("hidden"); $("login").classList.remove("hidden");
-  setTimeout(() => ($("email").value ? $("pwd") : $("email")).focus(), 50);
+  setTimeout(() => ($("email").value ? $("pwd") : $("email")).focus({ preventScroll: true }), 50);
 }
 
 let started = false;
@@ -1482,7 +1483,7 @@ function openForm(row, kind = "dep") {
   drawRep();
   drawFormCats();
   openSheet("sheet-exp");
-  if (!row) $("f-montant").focus();   // synchrone : iOS ouvre directement le clavier numérique
+  if (!row) $("f-montant").focus({ preventScroll: true });   // synchrone : iOS ouvre directement le clavier numérique
   drawSugg();
 }
 function drawRep() {
@@ -1521,7 +1522,7 @@ function openQuick() {
   $("q-cat").innerHTML = `Dans ${chip(c)} · aujourd'hui`;
   $("q-montant").value = ""; $("q-err").textContent = "";
   openSheet("sheet-quick");
-  $("q-montant").focus();
+  $("q-montant").focus({ preventScroll: true });
 }
 $("q-more").onclick = () => {
   const v = $("q-montant").value; closeSheet("sheet-quick");
@@ -1733,7 +1734,7 @@ function openCat(cat, kind) {
   $("cat-err").textContent = "";
   drawColors();
   openSheet("sheet-cat");
-  if (!cat) setTimeout(() => $("c-nom").focus(), 50);
+  if (!cat) setTimeout(() => $("c-nom").focus({ preventScroll: true }), 50);
 }
 
 $("cat-form").addEventListener("submit", async (e) => {
@@ -1813,7 +1814,7 @@ async function deleteCat() {
 
 // ---------- Recherche (toutes années) ----------
 let searchTok = 0, searchTimer = null, searchRows = [];
-$("open-search").onclick = () => { openSheet("sheet-search"); $("s-q").focus(); doSearch(); };
+$("open-search").onclick = () => { openSheet("sheet-search"); $("s-q").focus({ preventScroll: true }); doSearch(); };
 $("s-q").addEventListener("input", () => { clearTimeout(searchTimer); searchTimer = setTimeout(doSearch, 250); });
 async function doSearch() {
   const q = $("s-q").value.trim(), tok = ++searchTok;
@@ -1943,7 +1944,7 @@ function askPin(e, mode) {
   $("lock-other").textContent = mode === "gate" ? (other ? "Aller dans l'espace " + other.nom : "") : "Annuler";
   $("lock-other").classList.toggle("hidden", mode === "gate" && !other);
   $("lock").classList.remove("hidden");
-  $("lock-code").focus();
+  $("lock-code").focus({ preventScroll: true });
   return new Promise(res => { pinResolve = res; });
 }
 function closePin(ok) { $("lock").classList.add("hidden"); const r = pinResolve; pinResolve = null; if (r) r(ok); }
@@ -1951,7 +1952,7 @@ function pinWrong() {
   $("lock-err").textContent = "Code incorrect.";
   $("lock-code").value = "";
   const box = document.querySelector(".lock-box"); box.classList.remove("shake"); void box.offsetWidth; box.classList.add("shake");
-  $("lock-code").focus();
+  $("lock-code").focus({ preventScroll: true });
 }
 let pinChecking = false;
 async function tryPin(final) {
@@ -2008,7 +2009,7 @@ function openEspEdit(e) {
   $("ee-err").textContent = "";
   drawEspColors();
   openSheet("sheet-espedit");
-  if (!e) $("ee-nom").focus();
+  if (!e) $("ee-nom").focus({ preventScroll: true });
 }
 $("esp-form").addEventListener("submit", async (ev) => {
   ev.preventDefault();
@@ -2110,6 +2111,29 @@ document.addEventListener("click", (e) => {
   applyMask(); render();
 });
 applyMask();
+
+// ---------- Clavier iPhone : garder les fenêtres dans la partie visible de l'écran ----------
+(function () {
+  const vv = window.visualViewport; if (!vv) return;
+  const root = document.documentElement;
+  const sync = () => {
+    root.style.setProperty("--vvh", vv.height + "px");
+    root.style.setProperty("--vvt", vv.offsetTop + "px");
+    document.body.classList.toggle("kb", window.innerHeight - vv.height > 120);   // clavier ouvert
+  };
+  vv.addEventListener("resize", sync); vv.addEventListener("scroll", sync); sync();
+})();
+// Un champ touché dans une fenêtre remonte dans la partie visible (sans faire défiler la page)
+document.addEventListener("focusin", (e) => {
+  const f = e.target; if (!f.matches || !f.matches("input, select, textarea")) return;
+  const sheet = f.closest(".sheet"); if (!sheet) return;
+  setTimeout(() => {
+    const r = f.getBoundingClientRect(), sr = sheet.getBoundingClientRect(), head = sheet.querySelector("h2");
+    const top = sr.top + (head ? head.offsetHeight : 0) + 8, bottom = sr.bottom - 12;
+    if (r.top < top) sheet.scrollTop -= top - r.top;
+    else if (r.bottom > bottom) sheet.scrollTop += r.bottom - bottom;
+  }, 320);
+});
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 init();
